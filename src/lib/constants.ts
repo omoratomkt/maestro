@@ -55,3 +55,8 @@ export const CANAIS_INTERACAO = [
   { value: 'linkedin', label: 'LinkedIn' },
   { value: 'instagram', label: 'Instagram' },
 ] as const
+
+/** Rótulo de canal em qualquer vocabulário (campanhas: 'whatsapp_evolution'; interações/fila: 'whatsapp'). */
+export function canalLabel(value: string) {
+  return labelOf(CANAIS, value) !== value ? labelOf(CANAIS, value) : labelOf(CANAIS_INTERACAO, value)
+}

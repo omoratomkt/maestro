@@ -7,7 +7,7 @@ import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Skeleton } from '@/components/ui/skeleton'
 import { useAutomations } from '@/hooks/useAutomations'
-import { CANAIS, labelOf } from '@/lib/constants'
+import { canalLabel } from '@/lib/constants'
 
 export default function Automations() {
   const { fluxos, log, loading, error, setAtivo } = useAutomations()
@@ -47,7 +47,7 @@ export default function Automations() {
                       <dl className="grid grid-cols-3 gap-2">
                         <div>
                           <dt className="text-muted-foreground">Canal</dt>
-                          <dd className="font-medium">{labelOf(CANAIS, f.canal_acao)}</dd>
+                          <dd className="font-medium">{canalLabel(f.canal_acao)}</dd>
                         </div>
                         <div>
                           <dt className="text-muted-foreground">Execuções</dt>
@@ -85,7 +85,7 @@ export default function Automations() {
                 {log.map((a) => (
                   <li key={a.id} className="flex items-center justify-between gap-3 px-3 py-2">
                     <span className="truncate">
-                      <b>{a.prospects?.nome_empresa ?? 'Prospect removido'}</b> — {a.tipo} via {labelOf(CANAIS, a.canal)}
+                      <b>{a.prospects?.nome_empresa ?? 'Prospect removido'}</b> — {a.tipo} via {canalLabel(a.canal)}
                     </span>
                     <span className="flex shrink-0 items-center gap-2 text-muted-foreground">
                       <Badge variant={a.erro_execucao ? 'destructive' : 'outline'}>{a.erro_execucao ? 'erro' : a.status}</Badge>

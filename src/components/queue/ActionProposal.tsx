@@ -1,7 +1,7 @@
 import { Badge } from '@/components/ui/badge'
 import { Textarea } from '@/components/ui/textarea'
 import type { FilaAcao } from '@/hooks/useQueue'
-import { CANAIS, labelOf } from '@/lib/constants'
+import { canalLabel } from '@/lib/constants'
 
 const TIPOS: Record<string, string> = {
   primeira_mensagem: 'Primeira mensagem',
@@ -21,7 +21,7 @@ interface Props {
 /** O que o agente propõe: ação, canal, mensagem e a razão da decisão. */
 export function ActionProposal({ item, editing, message, onMessage }: Props) {
   // Canais da fila usam o vocabulário de campanhas ('email', 'whatsapp_evolution'...) ou de interações ('whatsapp').
-  const canal = labelOf(CANAIS, item.canal)
+  const canal = canalLabel(item.canal)
   return (
     <div className="space-y-3 text-xs">
       <div className="flex flex-wrap gap-1.5">
