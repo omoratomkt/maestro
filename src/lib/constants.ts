@@ -35,3 +35,23 @@ export const STATUS_CAMPANHA = {
 export function labelOf(list: readonly { value: string; label: string }[], value: string) {
   return list.find((i) => i.value === value)?.label ?? value
 }
+
+export const PIPELINE_STATUS = [
+  { value: 'novo', label: 'Novo' },
+  { value: 'em_contato', label: 'Em contato' },
+  { value: 'engajado', label: 'Engajado' },
+  { value: 'qualificado', label: 'Qualificado' },
+  { value: 'agendado', label: 'Agendado' },
+  { value: 'convertido', label: 'Convertido' },
+  { value: 'descartado', label: 'Descartado' },
+] as const
+
+/** Todos os status do schema (inclui 'pausado', que só aparece na lista). */
+export const ALL_PROSPECT_STATUS = [...PIPELINE_STATUS, { value: 'pausado', label: 'Pausado' }] as const
+
+export const CANAIS_INTERACAO = [
+  { value: 'whatsapp', label: 'WhatsApp' },
+  { value: 'email', label: 'Email' },
+  { value: 'linkedin', label: 'LinkedIn' },
+  { value: 'instagram', label: 'Instagram' },
+] as const
