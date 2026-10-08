@@ -1,9 +1,143 @@
-import { EmptyState, PageShell } from '@/components/layout/PageShell'
+import { Pencil, Plus } from 'lucide-react'
+import { useCallback, useEffect, useState } from 'react'
+import { toast } from 'sonner'
+import { Field } from '@/components/campaigns/NewCampaignWizard/fields'
+import { PageShell } from '@/components/layout/PageShell'
+import { Badge } from '@/components/ui/badge'
+import { Button } from '@/components/ui/button'
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog'
+import { Input } from '@/components/ui/input'
+import { supabase } from '@/lib/supabase'
+import type { Tables } from '@/types/database'
+
+type Workspace = Tables<'workspaces'>
+
+const PLANOS = ['demo', 'starter', 'pro'] as const
+
+const slugify = (s: string) =>
+  s
+    .normalize('NFD')
+    .replace(/[̀-ͯ]/g, '')
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-|-$/g, '')
+
+function WorkspaceDialog({ workspace, onClose, onSaved }: { workspace?: Workspace; onClose: () => void; onSaved: () => void }) {
+  const [nome, setNome] = useState(workspace?.nome ?? '')
+  const [slug, setSlug] = useState(workspace?.slug ?? '')
+  const [plano, setPlano] = useState(workspace?.plano ?? 'starter')
+  const [ativo, setAtivo] = useState(workspace?.ativo ?? true)
+  const [saving, setSaving] = useState(false)
+
+  async function submit() {
+    if (!nome.trim() || !slug.trim()) return toast.error('Informe nome e slug.')
+    setSaving(true)
+    const payload = { nome: nome.trim(), slug: slug.trim(), plano, ativo, atualizado_em: new Date().toISOString() }
+    const { error } = workspace
+      ? await supabase.from('workspaces').update(payload).eq('id', workspace.id)
+      : await supabase.from('workspaces').insert(payload)
+    setSaving(false)
+    if (error) return toast.error(error.message.includes('duplicate') ? 'Já existe um workspace com esse slug.' : error.message)
+    toast.success('Workspace salvo.')
+    onSaved()
+    onClose()
+  }
+
+  return (
+    <Dialog open onOpenChange={(o) => !o && onClose()}>
+      <DialogContent className="sm:max-w-md">
+        <DialogHeader>
+          <DialogTitle>{workspace ? 'Editar workspace' : 'Novo workspace'}</DialogTitle>
+          <DialogDescription>Um workspace por cliente. Isola todos os dados.</DialogDescription>
+        </DialogHeader>
+        <div className="space-y-3">
+          <Field label="Nome">
+            <Input
+              value={nome}
+              onChange={(e) => {
+                setNome(e.target.value)
+                if (!workspace) setSlug(slugify(e.target.value))
+              }}
+            />
+          </Field>
+          <Field label="Slug" hint="Identificador único, sem espaços.">
+            <Input value={slug} onChange={(e) => setSlug(slugify(e.target.value))} />
+          </Field>
+          <Field label="Plano">
+            <select className="h-8 w-full rounded-lg border bg-background px-2.5 text-sm" value={plano} onChange={(e) => setPlano(e.target.value)}>
+              {PLANOS.map((p) => (
+                <option key={p} value={p}>
+                  {p}
+                </option>
+              ))}
+            </select>
+          </Field>
+          <label className="flex items-center gap-2 text-xs">
+            <input type="checkbox" checked={ativo} onChange={(e) => setAtivo(e.target.checked)} />
+            Ativo
+          </label>
+        </div>
+        <div className="flex justify-end gap-2">
+          <Button variant="ghost" onClick={onClose} disabled={saving}>
+            Cancelar
+          </Button>
+          <Button onClick={submit} disabled={saving}>
+            Salvar
+          </Button>
+        </div>
+      </DialogContent>
+    </Dialog>
+  )
+}
 
 export default function Workspaces() {
+  const [items, setItems] = useState<Workspace[]>([])
+  const [error, setError] = useState<string | null>(null)
+  const [editing, setEditing] = useState<'new' | Workspace | null>(null)
+
+  const load = useCallback(async () => {
+    const { data, error: err } = await supabase.from('workspaces').select('*').order('criado_em')
+    if (err) setError(err.message)
+    else setItems(data)
+  }, [])
+
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    void load()
+  }, [load])
+
   return (
     <PageShell title="Workspaces" description="Clientes, planos e usuários">
-      <EmptyState message="A gestão de workspaces será construída na próxima etapa." />
+      <div className="mb-4 flex justify-end">
+        <Button onClick={() => setEditing('new')}>
+          <Plus /> Novo workspace
+        </Button>
+      </div>
+      {error ? <p className="text-sm text-destructive">Erro ao carregar workspaces: {error}</p> : null}
+      <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+        {items.map((w) => (
+          <Card key={w.id}>
+            <CardHeader>
+              <div className="flex items-start justify-between gap-2">
+                <CardTitle>{w.nome}</CardTitle>
+                <Badge variant={w.ativo ? 'default' : 'secondary'}>{w.ativo ? 'Ativo' : 'Inativo'}</Badge>
+              </div>
+              <p className="text-xs text-muted-foreground">
+                {w.slug} · plano {w.plano}
+              </p>
+            </CardHeader>
+            <CardContent>
+              <Button size="sm" variant="outline" onClick={() => setEditing(w)}>
+                <Pencil /> Editar
+              </Button>
+            </CardContent>
+          </Card>
+        ))}
+      </div>
+      {editing ? (
+        <WorkspaceDialog workspace={editing === 'new' ? undefined : editing} onClose={() => setEditing(null)} onSaved={load} />
+      ) : null}
     </PageShell>
   )
 }
