@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useMemo, useState } from 'react'
 import { ConversationThread } from '@/components/inbox/ConversationThread'
 import { InboxList } from '@/components/inbox/InboxList'
 import { EmptyState, PageShell } from '@/components/layout/PageShell'
@@ -11,6 +11,8 @@ export default function Inbox() {
   const [selected, setSelected] = useState<string | null>(null)
   const { interacoes, loading: loadingThread } = useProspectDetail(selected)
   const current = messages.find((m) => m.prospect_id === selected)
+  const [onlyOpen, setOnlyOpen] = useState(false)
+  const visible = useMemo(() => (onlyOpen ? messages.filter((m) => m.estado !== 'respondida') : messages), [messages, onlyOpen])
 
   return (
     <PageShell title="Caixa de Entrada" description="Respostas recebidas em todos os canais">
@@ -22,8 +24,20 @@ export default function Inbox() {
       ) : (
         <div className="grid gap-4 lg:grid-cols-[minmax(0,2fr)_minmax(0,3fr)]">
           <div className="space-y-2">
-            {truncated ? <p className="text-xs text-muted-foreground">Mostrando as 200 respostas mais recentes.</p> : null}
-            <InboxList messages={messages} selectedProspectId={selected} onSelect={(m) => setSelected(m.prospect_id)} />
+            <div className="flex gap-2 text-xs">
+              {[false, true].map((v) => (
+                <button
+                  key={String(v)}
+                  type="button"
+                  onClick={() => setOnlyOpen(v)}
+                  className={`rounded-full border px-3 py-1 ${onlyOpen === v ? 'border-primary bg-primary text-primary-foreground' : 'hover:bg-muted'}`}
+                >
+                  {v ? 'Aguardam resposta' : 'Todas'}
+                </button>
+              ))}
+            </div>
+            {truncated ? <p className="text-xs text-muted-foreground">Mostrando as respostas mais recentes.</p> : null}
+            <InboxList messages={visible} selectedProspectId={selected} onSelect={(m) => setSelected(m.prospect_id)} />
           </div>
           <div className="rounded-lg border p-4">
             {selected ? (

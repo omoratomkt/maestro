@@ -1,9 +1,15 @@
 import { formatDistanceToNow } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
 import { Badge } from '@/components/ui/badge'
-import type { InboxMessage } from '@/hooks/useInbox'
+import type { InboxMessage, InboxState } from '@/hooks/useInbox'
 import { CANAIS_INTERACAO, labelOf } from '@/lib/constants'
 import { cn } from '@/lib/utils'
+
+const ESTADO: Record<InboxState, { label: string; variant: 'default' | 'secondary' | 'outline' }> = {
+  respondida: { label: 'Respondida', variant: 'outline' },
+  agente: { label: 'Agente vai responder', variant: 'secondary' },
+  humano: { label: 'Aguarda humano', variant: 'default' },
+}
 
 interface Props {
   messages: InboxMessage[]
@@ -30,7 +36,7 @@ export function InboxList({ messages, selectedProspectId, onSelect }: Props) {
             <p className="line-clamp-2 text-muted-foreground">{m.conteudo}</p>
             <div className="flex gap-1.5">
               <Badge variant="outline">{labelOf(CANAIS_INTERACAO, m.canal)}</Badge>
-              <Badge variant={m.agenteResponde ? 'secondary' : 'default'}>{m.agenteResponde ? 'Agente vai responder' : 'Aguarda humano'}</Badge>
+              <Badge variant={ESTADO[m.estado].variant}>{ESTADO[m.estado].label}</Badge>
             </div>
           </button>
         </li>

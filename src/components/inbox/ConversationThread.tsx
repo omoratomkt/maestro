@@ -4,6 +4,8 @@ import type { Interacao } from '@/hooks/useProspects'
 import { CANAIS_INTERACAO, labelOf } from '@/lib/constants'
 import { cn } from '@/lib/utils'
 
+const AUTOR: Record<string, string> = { agente: 'Agente', fluxo: 'Automação', humano: 'Você' }
+
 /** Conversa cross-canal em ordem cronológica (in = prospect, out = Maestro). */
 export function ConversationThread({ interacoes }: { interacoes: Interacao[] }) {
   if (interacoes.length === 0) {
@@ -22,6 +24,7 @@ export function ConversationThread({ interacoes }: { interacoes: Interacao[] }) 
             {i.conteudo}
           </div>
           <span className="mt-0.5 text-[10px] text-muted-foreground">
+            {i.direcao === 'out' && AUTOR[(i.metadata as { autor?: string } | null)?.autor ?? ''] ? `${AUTOR[(i.metadata as { autor?: string }).autor!]} · ` : ''}
             {labelOf(CANAIS_INTERACAO, i.canal)} · {format(new Date(i.enviado_em), "dd/MM HH:mm", { locale: ptBR })}
             {i.direcao === 'out' && i.status ? ` · ${i.status}` : ''}
           </span>

@@ -2,13 +2,15 @@ import { useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabase'
 import type { Tables } from '@/types/database'
 
+/** respondida: já há mensagem nossa depois · agente: resposta proposta na fila · humano: ninguém respondeu e nada está proposto */
+export type InboxState = 'respondida' | 'agente' | 'humano'
+
 export type InboxMessage = Tables<'prospect_interacoes'> & {
   prospects: Pick<Tables<'prospects'>, 'nome_empresa' | 'nome_contato' | 'cargo'> | null
-  /** true quando já existe uma resposta do agente pendente de aprovação ou aprovada para este prospect. */
-  agenteResponde: boolean
+  estado: InboxState
 }
 
-const LIMIT = 200
+const LIMIT = 600
 
 /** Respostas recebidas (direcao = 'in') em todos os canais, da mais recente para a mais antiga. */
 export function useInbox() {
@@ -19,20 +21,31 @@ export function useInbox() {
   useEffect(() => {
     let active = true
     Promise.all([
+      // Busca as duas direções para saber se uma resposta já foi respondida depois.
       supabase
         .from('prospect_interacoes')
         .select('*, prospects(nome_empresa, nome_contato, cargo)')
-        .eq('direcao', 'in')
         .order('enviado_em', { ascending: false })
         .limit(LIMIT),
       supabase.from('fila_acoes').select('prospect_id').eq('tipo', 'resposta').in('status', ['pendente', 'aprovada']),
-    ]).then(([msgs, fila]) => {
+    ]).then(([all, fila]) => {
       if (!active) return
-      const err = msgs.error ?? fila.error
+      const err = all.error ?? fila.error
       if (err) return setError(err.message)
-      const handled = new Set((fila.data ?? []).map((f) => f.prospect_id))
+      const rows = all.data ?? []
+      const proposed = new Set((fila.data ?? []).map((f) => f.prospect_id))
+      const lastOut = new Map<string, string>()
+      for (const r of rows) {
+        if (r.direcao === 'out' && !lastOut.has(r.prospect_id)) lastOut.set(r.prospect_id, r.enviado_em) // linhas já vêm da mais recente
+      }
       setMessages(
-        (msgs.data ?? []).map((m) => ({ ...m, prospects: m.prospects, agenteResponde: handled.has(m.prospect_id) })),
+        rows
+          .filter((r) => r.direcao === 'in')
+          .map((m) => {
+            const out = lastOut.get(m.prospect_id)
+            const estado: InboxState = out && out > m.enviado_em ? 'respondida' : proposed.has(m.prospect_id) ? 'agente' : 'humano'
+            return { ...m, estado }
+          }),
       )
       setLoading(false)
     })
