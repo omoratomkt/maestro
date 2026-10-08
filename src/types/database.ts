@@ -676,6 +676,7 @@ export type Database = {
     Functions: {
       get_workspace_ids_for_user: { Args: never; Returns: string[] }
       is_super_admin: { Args: never; Returns: boolean }
+      metricas_resumo: { Args: { dias?: number }; Returns: Json }
     }
     Enums: {
       [_ in never]: never
