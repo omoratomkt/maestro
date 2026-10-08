@@ -7,6 +7,8 @@ export interface MetricsSummary {
   respostas: number
   qualificados: number
   horas_ate_qualificar: number | null
+  custo_total_usd: number
+  custo_por_lead_usd: number | null
   por_canal: { canal: string; contatados: number; responderam: number }[]
   funil: { status: string; total: number }[]
 }

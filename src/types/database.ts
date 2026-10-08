@@ -101,6 +101,57 @@ export type Database = {
           },
         ]
       }
+      custos_uso: {
+        Row: {
+          criado_em: string
+          custo_usd: number
+          id: string
+          modelo: string
+          origem: string
+          prospect_id: string | null
+          tokens_in: number
+          tokens_out: number
+          workspace_id: string
+        }
+        Insert: {
+          criado_em?: string
+          custo_usd?: number
+          id?: string
+          modelo: string
+          origem: string
+          prospect_id?: string | null
+          tokens_in?: number
+          tokens_out?: number
+          workspace_id: string
+        }
+        Update: {
+          criado_em?: string
+          custo_usd?: number
+          id?: string
+          modelo?: string
+          origem?: string
+          prospect_id?: string | null
+          tokens_in?: number
+          tokens_out?: number
+          workspace_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "custos_uso_prospect_id_fkey"
+            columns: ["prospect_id"]
+            isOneToOne: false
+            referencedRelation: "prospects"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "custos_uso_workspace_id_fkey"
+            columns: ["workspace_id"]
+            isOneToOne: false
+            referencedRelation: "workspaces"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       fila_acoes: {
         Row: {
           aprovada_em: string | null

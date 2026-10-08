@@ -1,0 +1,27 @@
+name: agent-loop
+
+# Roda o ciclo do agente a cada 15 minutos, todos os dias: expira propostas vencidas, enriquece prospects novos,
+# envia ações aprovadas e propõe a próxima ação dos prospects com proxima_acao_em <= agora.
+on:
+  schedule:
+    - cron: '*/15 * * * *'
+  workflow_dispatch:
+
+concurrency:
+  group: agent-loop
+  cancel-in-progress: false
+
+jobs:
+  run:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Chamar a Edge Function agent-loop
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          CRON_SECRET: ${{ secrets.CRON_SECRET }}
+        run: |
+          curl --fail-with-body -sS --max-time 170 -X POST "$SUPABASE_URL/functions/v1/agent-loop" \
+            -H "x-cron-secret: $CRON_SECRET" \
+            -H "Content-Type: application/json" \
+            -d '{}'

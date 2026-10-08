@@ -51,9 +51,9 @@ export default function Metrics() {
             <MetricCard label="Tempo médio até qualificação" value={formatHours(data.horas_ate_qualificar)} icon={Clock} />
             <MetricCard
               label="Custo por lead qualificado"
-              value="—"
+              value={data.custo_por_lead_usd !== null ? `US$ ${Number(data.custo_por_lead_usd).toFixed(2)}` : '—'}
               icon={Coins}
-              hint="Aguardando registro de custo (tokens de IA e APIs), ainda não coletado"
+              hint={`Custo de IA no período: US$ ${Number(data.custo_total_usd).toFixed(2)} (APIs de dados não incluídas)`}
             />
             <MetricCard
               label="Respostas / enviadas"

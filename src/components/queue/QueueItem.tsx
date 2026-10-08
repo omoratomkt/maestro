@@ -6,14 +6,14 @@ import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
-import type { FilaAcao } from '@/hooks/useQueue'
+import type { FilaAcao, SendResult } from '@/hooks/useQueue'
 import { ActionProposal } from './ActionProposal'
 
 interface Props {
   item: FilaAcao
-  onApprove: (item: FilaAcao, edited?: string) => Promise<void>
+  onApprove: (item: FilaAcao, edited?: string) => Promise<SendResult>
   onReject: (item: FilaAcao) => Promise<void>
-  onAutomate: (item: FilaAcao, nome: string, template: string) => Promise<void>
+  onAutomate: (item: FilaAcao, nome: string, template: string) => Promise<SendResult>
 }
 
 export function QueueItem({ item, onApprove, onReject, onAutomate }: Props) {
@@ -23,11 +23,14 @@ export function QueueItem({ item, onApprove, onReject, onAutomate }: Props) {
   const [flowName, setFlowName] = useState(`${item.tipo} via ${item.canal}`)
   const [busy, setBusy] = useState(false)
 
-  async function run(action: () => Promise<void>, ok: string) {
+  async function run(action: () => Promise<void | SendResult>, ok: string) {
     setBusy(true)
     try {
-      await action()
-      toast.success(ok)
+      const r = await action()
+      if (r && typeof r === 'object' && 'enviado' in r) {
+        if (r.enviado) toast.success(`${ok} Mensagem enviada.`)
+        else toast.warning(`Aprovada, mas o envio falhou: ${r.detalhe}. Ela aparece em "Falhas de envio" para tentar de novo.`, { duration: 9000 })
+      } else toast.success(ok)
     } catch (e) {
       toast.error(e instanceof Error ? e.message : 'Erro ao processar a ação')
       setBusy(false)

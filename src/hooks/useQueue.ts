@@ -33,28 +33,45 @@ export function usePendingQueueCount() {
   return count
 }
 
-export type FilaAcao = Tables<'fila_acoes'> & {
-  prospects: Pick<Tables<'prospects'>, 'nome_empresa' | 'nome_contato' | 'cargo' | 'score'> | null
-  campanhas: Pick<Tables<'campanhas'>, 'nome'> | null
+type Prospect = { prospects: Pick<Tables<'prospects'>, 'nome_empresa' | 'nome_contato' | 'cargo' | 'score'> | null; campanhas: Pick<Tables<'campanhas'>, 'nome'> | null }
+export type FilaAcao = Tables<'fila_acoes'> & Prospect
+
+export interface SendResult {
+  enviado: boolean
+  detalhe: string
 }
 
-/** Ações pendentes de aprovação + operações da fila. */
+/** Pede à Edge Function action-execute para enviar uma ação já aprovada. */
+async function executeOnServer(filaId: string): Promise<SendResult> {
+  const { data, error } = await supabase.functions.invoke('action-execute', { body: { fila_id: filaId } })
+  if (!error) return { enviado: Boolean(data?.ok), detalhe: data?.detalhe ?? '' }
+  // 422 (envio falhou) devolve o motivo no corpo; outros erros caem na mensagem genérica.
+  const ctx = (error as { context?: Response }).context
+  const body = ctx ? await ctx.json().catch(() => null) : null
+  return { enviado: false, detalhe: body?.detalhe ?? body?.error ?? error.message }
+}
+
+const SELECT = '*, prospects(nome_empresa, nome_contato, cargo, score), campanhas(nome)'
+
+/** Ações pendentes de aprovação, ações aprovadas com falha de envio e as operações da fila. */
 export function useQueue() {
   const { session, workspaceId } = useAuth()
   const [items, setItems] = useState<FilaAcao[]>([])
+  const [falhas, setFalhas] = useState<FilaAcao[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
   const reload = useCallback(async () => {
-    const { data, error: err } = await supabase
-      .from('fila_acoes')
-      .select('*, prospects(nome_empresa, nome_contato, cargo, score), campanhas(nome)')
-      .eq('status', 'pendente')
-      .order('criado_em', { ascending: true })
+    const [pend, fail] = await Promise.all([
+      supabase.from('fila_acoes').select(SELECT).eq('status', 'pendente').order('criado_em', { ascending: true }),
+      supabase.from('fila_acoes').select(SELECT).eq('status', 'aprovada').not('erro_execucao', 'is', null).order('criado_em', { ascending: true }),
+    ])
+    const err = pend.error ?? fail.error
     if (err) setError(err.message)
     else {
       setError(null)
-      setItems(data as FilaAcao[])
+      setItems((pend.data ?? []) as FilaAcao[])
+      setFalhas((fail.data ?? []) as FilaAcao[])
     }
     setLoading(false)
   }, [])
@@ -71,20 +88,36 @@ export function useQueue() {
     notifyQueueChanged()
   }
 
-  /** Aprova (com a mensagem editada, se houver). A execução é feita pela Edge Function action-execute. */
-  const approve = (item: FilaAcao, editedMessage?: string) =>
-    resolve(item.id, {
+  /** Aprova (com a mensagem editada, se houver) e já envia pelo canal. Se o envio falhar, a ação fica em "falhas". */
+  const approve = async (item: FilaAcao, editedMessage?: string): Promise<SendResult> => {
+    await resolve(item.id, {
       status: 'aprovada',
       aprovada_por: session?.user.id ?? null,
       aprovada_em: new Date().toISOString(),
       mensagem_editada: editedMessage && editedMessage !== item.mensagem ? editedMessage : null,
     })
+    const result = await executeOnServer(item.id)
+    if (!result.enviado) await reload()
+    return result
+  }
+
+  const retry = async (item: FilaAcao): Promise<SendResult> => {
+    const result = await executeOnServer(item.id)
+    await reload()
+    return result
+  }
 
   const reject = (item: FilaAcao) =>
     resolve(item.id, { status: 'rejeitada', aprovada_por: session?.user.id ?? null, aprovada_em: new Date().toISOString() })
 
-  /** Promove o padrão desta ação a fluxo automático e aprova a ação atual. */
-  const automate = async (item: FilaAcao, nome: string, template: string) => {
+  const cancel = async (item: FilaAcao) => {
+    const { error: err } = await supabase.from('fila_acoes').update({ status: 'cancelada' }).eq('id', item.id).eq('status', 'aprovada')
+    if (err) throw new Error(err.message)
+    setFalhas((list) => list.filter((i) => i.id !== item.id))
+  }
+
+  /** Promove o padrão desta ação a fluxo automático e aprova (e envia) a ação atual. */
+  const automate = async (item: FilaAcao, nome: string, template: string): Promise<SendResult> => {
     if (!workspaceId) throw new Error('Usuário sem workspace vinculado.')
     const { error: err } = await supabase.from('fluxos_automaticos').insert({
       workspace_id: item.workspace_id,
@@ -97,8 +130,8 @@ export function useQueue() {
       template_mensagem: template,
     })
     if (err) throw new Error(err.message)
-    await approve(item, template)
+    return approve(item, template)
   }
 
-  return { items, loading, error, approve, reject, automate }
+  return { items, falhas, loading, error, approve, reject, automate, retry, cancel }
 }

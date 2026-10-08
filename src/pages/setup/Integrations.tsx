@@ -70,6 +70,7 @@ export default function Integrations() {
         <IntegrationForm
           key={editing.tipo}
           def={editing}
+          workspaceId={workspaceId!}
           current={items.find((i) => i.tipo === editing.tipo)}
           onClose={() => setEditing(null)}
           onSave={(config, ativo) => save(editing.tipo, config, ativo)}
