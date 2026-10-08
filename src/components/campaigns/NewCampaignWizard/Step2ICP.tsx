@@ -3,18 +3,21 @@ import { Field, TagInput } from './fields'
 import type { CampaignDraft } from './types'
 
 interface Props {
+  hideName?: boolean
   draft: CampaignDraft
   onChange: (d: CampaignDraft) => void
 }
 
-export function Step2ICP({ draft, onChange }: Props) {
+export function Step2ICP({ draft, onChange, hideName }: Props) {
   const set = <K extends keyof CampaignDraft>(k: K, v: CampaignDraft[K]) => onChange({ ...draft, [k]: v })
 
   return (
     <div className="space-y-4">
-      <Field label="Nome da campanha">
-        <Input value={draft.nome} onChange={(e) => set('nome', e.target.value)} placeholder="Ex.: Clínicas de estética — SP" />
-      </Field>
+      {hideName ? null : (
+        <Field label="Nome da campanha">
+          <Input value={draft.nome} onChange={(e) => set('nome', e.target.value)} placeholder="Ex.: Clínicas de estética — SP" />
+        </Field>
+      )}
       <Field label="Segmento alvo">
         <Input value={draft.segmento} onChange={(e) => set('segmento', e.target.value)} placeholder="Ex.: Clínicas de estética" />
       </Field>

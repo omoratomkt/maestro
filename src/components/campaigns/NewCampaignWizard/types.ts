@@ -1,4 +1,4 @@
-import type { Playbook } from '@/hooks/useCampaigns'
+import type { Campanha, Playbook } from '@/hooks/useCampaigns'
 import type { Json, TablesInsert } from '@/types/database'
 
 export interface Objecao {
@@ -85,6 +85,7 @@ export function draftFromPlaybook(p: Playbook): CampaignDraft {
     segmento: str(icp.segmento) ?? '',
     cargos_alvo: strs(icp.cargos_alvo) ?? [],
     regioes: strs(icp.regioes) ?? [],
+    criterios_exclusao: strs(icp.criterios_exclusao) ?? [],
     score_minimo: num(icp.score_minimo) ?? emptyDraft.score_minimo,
     volume_semanal: num(icp.volume_semanal) ?? emptyDraft.volume_semanal,
     fontes: p.fontes_padrao ?? [],
@@ -140,4 +141,69 @@ export function validateStep(step: number, d: CampaignDraft): string | null {
     if (!d.persona_nome.trim() || !d.persona_produto.trim()) return 'Informe o nome da persona e o produto/serviço oferecido.'
   }
   return null
+}
+
+/** Rascunho a partir de uma campanha existente (modo edição). */
+export function campanhaToDraft(c: Campanha): CampaignDraft {
+  const objecoes = Array.isArray(c.persona_objecoes)
+    ? c.persona_objecoes.flatMap((o) => {
+        const x = obj(o)
+        return [{ objecao: str(x.objecao) ?? '', resposta: str(x.resposta) ?? '' }]
+      })
+    : []
+  const criterios = Array.isArray(c.criterios_qualificacao)
+    ? c.criterios_qualificacao.flatMap((o) => {
+        const x = obj(o)
+        return [{ campo: str(x.campo) ?? '', pergunta: str(x.pergunta) ?? '', obrigatorio: x.obrigatorio !== false }]
+      })
+    : []
+  return {
+    playbook_id: c.playbook_id,
+    nome: c.nome,
+    segmento: c.segmento ?? '',
+    cargos_alvo: c.cargos_alvo ?? [],
+    regioes: c.regioes ?? [],
+    score_minimo: c.score_minimo,
+    volume_semanal: c.volume_semanal ?? emptyDraft.volume_semanal,
+    criterios_exclusao: strs(c.criterios_exclusao) ?? [],
+    fontes: c.fontes ?? [],
+    canais: c.canais ?? [],
+    persona_nome: c.persona_nome ?? '',
+    persona_tom: c.persona_tom ?? emptyDraft.persona_tom,
+    persona_produto: c.persona_produto ?? '',
+    persona_argumentos: c.persona_argumentos ?? [],
+    persona_objecoes: objecoes,
+    criterios_qualificacao: criterios,
+  }
+}
+
+/** Payload de playbook a partir do editor (mesmo formato lido por draftFromPlaybook). */
+export function draftToPlaybook(
+  d: CampaignDraft,
+  extra: { descricao: string; icone: string; ativo: boolean },
+): TablesInsert<'playbooks'> {
+  return {
+    nome: d.nome.trim(),
+    descricao: extra.descricao.trim() || null,
+    icone: extra.icone.trim() || null,
+    ativo: extra.ativo,
+    fontes_padrao: d.fontes,
+    canais_padrao: d.canais,
+    icp_padrao: {
+      segmento: d.segmento.trim(),
+      cargos_alvo: d.cargos_alvo,
+      regioes: d.regioes,
+      score_minimo: d.score_minimo,
+      volume_semanal: d.volume_semanal,
+      criterios_exclusao: d.criterios_exclusao,
+    },
+    persona_padrao: {
+      nome: d.persona_nome.trim(),
+      tom: d.persona_tom,
+      produto: d.persona_produto.trim(),
+      argumentos: d.persona_argumentos,
+      objecoes: d.persona_objecoes,
+    } as unknown as Json,
+    criterios_qualificacao_padrao: d.criterios_qualificacao as unknown as Json,
+  }
 }

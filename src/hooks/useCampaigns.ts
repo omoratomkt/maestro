@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabase'
-import type { Tables, TablesInsert } from '@/types/database'
+import type { Tables, TablesInsert, TablesUpdate } from '@/types/database'
 
 export type CampanhaStatus = 'rascunho' | 'ativa' | 'pausada' | 'encerrada'
 export type Campanha = Omit<Tables<'campanhas'>, 'status'> & { status: CampanhaStatus }
@@ -35,6 +35,12 @@ export function useCampaigns() {
     await reload()
   }
 
+  const update = async (id: string, patch: TablesUpdate<'campanhas'>) => {
+    const { error: err } = await supabase.from('campanhas').update(patch).eq('id', id)
+    if (err) throw new Error(err.message)
+    await reload()
+  }
+
   const setStatus = async (id: string, status: Campanha['status']) => {
     const { error: err } = await supabase
       .from('campanhas')
@@ -44,7 +50,7 @@ export function useCampaigns() {
     await reload()
   }
 
-  return { campanhas, loading, error, create, setStatus }
+  return { campanhas, loading, error, create, update, setStatus }
 }
 
 export function usePlaybooks() {

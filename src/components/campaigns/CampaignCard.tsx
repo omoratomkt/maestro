@@ -1,4 +1,4 @@
-import { Pause, Play, Square } from 'lucide-react'
+import { Pencil, Pause, Play, Square } from 'lucide-react'
 import { toast } from 'sonner'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -9,9 +9,10 @@ import { CANAIS, FONTES, STATUS_CAMPANHA, labelOf } from '@/lib/constants'
 interface Props {
   campanha: Campanha
   onStatus: (id: string, status: Campanha['status']) => Promise<void>
+  onEdit: (c: Campanha) => void
 }
 
-export function CampaignCard({ campanha: c, onStatus }: Props) {
+export function CampaignCard({ campanha: c, onStatus, onEdit }: Props) {
   async function change(status: Campanha['status']) {
     try {
       await onStatus(c.id, status)
@@ -55,7 +56,10 @@ export function CampaignCard({ campanha: c, onStatus }: Props) {
             </Badge>
           ))}
         </div>
-        <div className="flex gap-2 pt-1">
+        <div className="flex flex-wrap gap-2 pt-1">
+          <Button size="sm" variant="outline" onClick={() => onEdit(c)}>
+            <Pencil /> Editar
+          </Button>
           {c.status === 'ativa' ? (
             <Button size="sm" variant="outline" onClick={() => change('pausada')}>
               <Pause /> Pausar
