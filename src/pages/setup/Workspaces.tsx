@@ -1,4 +1,4 @@
-import { Pencil, Plus } from 'lucide-react'
+import { Pencil, Plus, Users } from 'lucide-react'
 import { useCallback, useEffect, useState } from 'react'
 import { toast } from 'sonner'
 import { Field } from '@/components/campaigns/NewCampaignWizard/fields'
@@ -8,6 +8,7 @@ import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { Input } from '@/components/ui/input'
+import { WorkspaceUsers } from '@/components/setup/WorkspaceUsers'
 import { supabase } from '@/lib/supabase'
 import type { Tables } from '@/types/database'
 
@@ -95,6 +96,7 @@ export default function Workspaces() {
   const [items, setItems] = useState<Workspace[]>([])
   const [error, setError] = useState<string | null>(null)
   const [editing, setEditing] = useState<'new' | Workspace | null>(null)
+  const [usersOf, setUsersOf] = useState<Workspace | null>(null)
 
   const load = useCallback(async () => {
     const { data, error: err } = await supabase.from('workspaces').select('*').order('criado_em')
@@ -127,14 +129,18 @@ export default function Workspaces() {
                 {w.slug} · plano {w.plano}
               </p>
             </CardHeader>
-            <CardContent>
+            <CardContent className="flex gap-2">
               <Button size="sm" variant="outline" onClick={() => setEditing(w)}>
                 <Pencil /> Editar
+              </Button>
+              <Button size="sm" variant="outline" onClick={() => setUsersOf(w)}>
+                <Users /> Usuários
               </Button>
             </CardContent>
           </Card>
         ))}
       </div>
+      {usersOf ? <WorkspaceUsers workspace={usersOf} onClose={() => setUsersOf(null)} /> : null}
       {editing ? (
         <WorkspaceDialog workspace={editing === 'new' ? undefined : editing} onClose={() => setEditing(null)} onSaved={load} />
       ) : null}

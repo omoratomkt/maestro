@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { useTableChanges } from '@/lib/realtime'
 import { supabase } from '@/lib/supabase'
 import type { Tables } from '@/types/database'
 
@@ -18,6 +19,8 @@ interface DashboardData {
 export function useDashboard() {
   const [data, setData] = useState<DashboardData | null>(null)
   const [error, setError] = useState<string | null>(null)
+  const [tick, setTick] = useState(0)
+  useTableChanges(['fila_acoes', 'prospects', 'prospect_interacoes', 'leads_qualificados'], () => setTick((t) => t + 1))
 
   useEffect(() => {
     let active = true
@@ -54,7 +57,7 @@ export function useDashboard() {
     return () => {
       active = false
     }
-  }, [])
+  }, [tick])
 
   return { data, error }
 }

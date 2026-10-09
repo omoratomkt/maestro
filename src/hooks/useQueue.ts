@@ -1,5 +1,7 @@
 import { useCallback, useEffect, useState } from 'react'
 import { useAuth } from '@/lib/auth'
+import { callFunction } from '@/lib/functions'
+import { useTableChanges } from '@/lib/realtime'
 import { supabase } from '@/lib/supabase'
 import type { Tables } from '@/types/database'
 
@@ -23,12 +25,9 @@ export function usePendingQueueCount() {
   useEffect(() => {
     load()
     window.addEventListener(QUEUE_EVENT, load)
-    window.addEventListener('focus', load)
-    return () => {
-      window.removeEventListener(QUEUE_EVENT, load)
-      window.removeEventListener('focus', load)
-    }
+    return () => window.removeEventListener(QUEUE_EVENT, load)
   }, [load])
+  useTableChanges(['fila_acoes'], load)
 
   return count
 }
@@ -43,12 +42,8 @@ export interface SendResult {
 
 /** Pede à Edge Function action-execute para enviar uma ação já aprovada. */
 async function executeOnServer(filaId: string): Promise<SendResult> {
-  const { data, error } = await supabase.functions.invoke('action-execute', { body: { fila_id: filaId } })
-  if (!error) return { enviado: Boolean(data?.ok), detalhe: data?.detalhe ?? '' }
-  // 422 (envio falhou) devolve o motivo no corpo; outros erros caem na mensagem genérica.
-  const ctx = (error as { context?: Response }).context
-  const body = ctx ? await ctx.json().catch(() => null) : null
-  return { enviado: false, detalhe: body?.detalhe ?? body?.error ?? error.message }
+  const r = await callFunction<{ ok?: boolean; detalhe?: string }>('action-execute', { fila_id: filaId })
+  return r.ok ? { enviado: Boolean(r.data?.ok), detalhe: r.data?.detalhe ?? '' } : { enviado: false, detalhe: r.error ?? 'erro desconhecido' }
 }
 
 const SELECT = '*, prospects(nome_empresa, nome_contato, cargo, score), campanhas(nome)'
@@ -80,6 +75,7 @@ export function useQueue() {
     // eslint-disable-next-line react-hooks/set-state-in-effect
     void reload()
   }, [reload])
+  useTableChanges(['fila_acoes'], reload)
 
   const resolve = async (id: string, patch: Partial<Tables<'fila_acoes'>>) => {
     const { error: err } = await supabase.from('fila_acoes').update(patch).eq('id', id).eq('status', 'pendente')

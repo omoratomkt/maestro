@@ -8,7 +8,7 @@ import { Skeleton } from '@/components/ui/skeleton'
 import { useCampaigns, type Campanha } from '@/hooks/useCampaigns'
 
 export default function Campaigns() {
-  const { campanhas, loading, error, create, update, setStatus } = useCampaigns()
+  const { campanhas, loading, error, create, update, setStatus, remove, buscar } = useCampaigns()
   // 'new' = criando; Campanha = editando; null = fechado (desmontar reseta o estado do wizard)
   const [wizard, setWizard] = useState<'new' | Campanha | null>(null)
 
@@ -37,7 +37,7 @@ export default function Campaigns() {
       ) : (
         <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
           {campanhas.map((c) => (
-            <CampaignCard key={c.id} campanha={c} onStatus={setStatus} onEdit={setWizard} />
+            <CampaignCard key={c.id} campanha={c} onStatus={setStatus} onEdit={setWizard} onSearch={buscar} onDelete={remove} />
           ))}
         </div>
       )}

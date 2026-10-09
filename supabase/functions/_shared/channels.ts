@@ -1,13 +1,13 @@
 // deno-lint-ignore-file no-explicit-any
 // Envio por canal. Implementados: WhatsApp (Evolution API e Meta Cloud API) e Email (Instantly).
-// LinkedIn e Instagram: sem envio — veja os comentários em cada caso.
+// Instagram: só resposta a quem já escreveu (IGSID conhecido, janela de 24 h). LinkedIn: sem envio — veja os comentários.
 import { getCredentials } from './credentials.ts'
 import { digits, type SB } from './util.ts'
 
 export type Canal = 'whatsapp' | 'email' | 'linkedin' | 'instagram'
 
 /** Canais que o agente pode propor hoje (têm envio implementado). */
-export const SENDABLE: Canal[] = ['whatsapp', 'email']
+export const SENDABLE: Canal[] = ['whatsapp', 'email', 'instagram']
 
 interface ChannelContext {
   workspace_id: string
@@ -16,13 +16,15 @@ interface ChannelContext {
 }
 
 /** Canais utilizáveis agora: na campanha, com integração ativa e envio implementado. */
-export async function availableChannels(sb: SB, ctx: ChannelContext): Promise<Canal[]> {
+export async function availableChannels(sb: SB, ctx: ChannelContext, opts: { igsidRecente?: boolean } = {}): Promise<Canal[]> {
   const { data } = await sb.from('integracoes').select('tipo').eq('workspace_id', ctx.workspace_id).eq('ativo', true)
   const active = new Set((data ?? []).map((r: { tipo: string }) => r.tipo))
   const inCampaign = (tipo: string) => ctx.campanhaCanais.includes(tipo) && active.has(tipo)
   const out: Canal[] = []
   if (inCampaign('whatsapp_evolution') || inCampaign('whatsapp_meta')) out.push('whatsapp')
   if (ctx.campanhaCanais.includes('email') && active.has('email_instantly')) out.push('email')
+  // Instagram só responde: exige mensagem recebida (IGSID) nas últimas 24 h.
+  if (opts.igsidRecente && inCampaign('instagram_meta')) out.push('instagram')
   return out
 }
 
@@ -39,6 +41,8 @@ export interface SendInput extends ChannelContext {
   }
   /** Última mensagem recebida por email (metadata guarda email_id/email_account do Instantly), se houver. */
   ultimaRespostaEmail?: { email_id?: string; email_account?: string; subject?: string } | null
+  /** IGSID de quem escreveu por Instagram (metadata da última mensagem recebida). */
+  igsid?: string | null
 }
 
 export interface SendResult {
@@ -64,13 +68,12 @@ export async function sendMessage(sb: SB, s: SendInput): Promise<SendResult> {
       return await sendWhatsapp(sb, s)
     case 'email':
       return await sendEmail(sb, s)
+    case 'instagram':
+      return await sendInstagram(sb, s)
     case 'linkedin':
       // Dripify: a Open API (jul/2026) ainda não envia mensagens. Expandi: envio acontece dentro das campanhas
       // da ferramenta; não há endpoint documentado para mensagem avulsa. Requer decisão de arquitetura.
       throw new Error('Envio por LinkedIn ainda não implementado: as ferramentas configuráveis não expõem envio avulso por API.')
-    case 'instagram':
-      // A Meta exige o IGSID (id do usuário no Instagram), que só é conhecido depois que a pessoa escreve primeiro.
-      throw new Error('Envio por Instagram ainda não implementado: a API da Meta só permite responder a quem já enviou mensagem.')
     default:
       throw new Error(`Canal desconhecido: ${s.canal}`)
   }
@@ -166,4 +169,23 @@ async function sendEmail(sb: SB, s: SendInput): Promise<SendResult> {
     'Instantly (lead)',
   )
   return { provider: 'email_instantly', metadata: { via: 'campaign', instantly_lead_id: body?.id, nota: 'envio agendado pelo Instantly conforme a campanha' } }
+}
+
+/**
+ * Instagram DM (Meta): só é possível responder a quem escreveu primeiro, dentro de 24 h, usando o IGSID do remetente.
+ * Não existe envio de primeira mensagem por esta API.
+ */
+async function sendInstagram(sb: SB, s: SendInput): Promise<SendResult> {
+  if (!s.igsid) throw new Error('Instagram só permite responder a quem já enviou mensagem (IGSID desconhecido).')
+  const c = await getCredentials(sb, s.workspace_id, 'instagram_meta')
+  const body = await http(
+    `https://graph.facebook.com/v21.0/${c.instagram_account_id}/messages`,
+    {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${c.access_token}` },
+      body: JSON.stringify({ recipient: { id: s.igsid }, message: { text: s.texto } }),
+    },
+    'Instagram (Meta) — fora da janela de 24 h a mensagem é recusada',
+  )
+  return { provider: 'instagram_meta', message_id: body?.message_id, metadata: { recipient_id: body?.recipient_id } }
 }

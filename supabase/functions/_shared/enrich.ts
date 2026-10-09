@@ -27,6 +27,33 @@ const fitSchema = {
   },
 }
 
+/** Tecnologias do site por assinaturas no HTML e nos cabeçalhos (abordagem do Wappalyzer, lista enxuta). */
+const ASSINATURAS: [string, RegExp][] = [
+  ['WordPress', /wp-content|wp-includes/i],
+  ['WooCommerce', /woocommerce/i],
+  ['Shopify', /cdn\.shopify\.com|Shopify\.theme/i],
+  ['Wix', /static\.wixstatic\.com|wix\.com/i],
+  ['Webflow', /webflow\.(com|io)/i],
+  ['Squarespace', /squarespace/i],
+  ['Nuvemshop', /nuvemshop|tiendanube/i],
+  ['VTEX', /vtex/i],
+  ['Tray', /tray\.com\.br|traycdn/i],
+  ['Loja Integrada', /lojaintegrada/i],
+  ['Google Tag Manager', /googletagmanager\.com\/gtm/i],
+  ['Google Analytics', /google-analytics\.com|gtag\(/i],
+  ['Meta Pixel', /connect\.facebook\.net[^"']*fbevents|fbq\(/i],
+  ['HubSpot', /hs-scripts\.com|hubspot/i],
+  ['RD Station', /rdstation/i],
+  ['WhatsApp (botão)', /wa\.me\/|api\.whatsapp\.com/i],
+  ['Hotjar', /hotjar/i],
+  ['Calendly', /calendly/i],
+  ['Cloudflare', /cloudflare/i],
+]
+function detectTech(html: string, headers: Headers): string[] {
+  const hay = html + ' ' + [...headers.entries()].map(([k, v]) => k + ': ' + v).join(' ')
+  return ASSINATURAS.filter(([, re]) => re.test(hay)).map(([nome]) => nome)
+}
+
 const clamp = (n: number, lo: number, hi: number) => Math.min(Math.max(Math.round(n), lo), hi)
 
 async function tryStep(etapas: Record<string, Etapa>, nome: string, fn: () => Promise<Etapa | void>) {
@@ -81,6 +108,7 @@ export async function enrichProspect(sb: SB, prospect_id: string): Promise<{ sco
         titulo: html.match(/<title[^>]*>([^<]{1,160})/i)?.[1]?.trim() ?? null,
         ms: Date.now() - t0,
       }
+      dados.tecnologias = detectTech(html, res.headers)
     })
   } else etapas.site = 'pulada: sem website'
 
@@ -157,7 +185,21 @@ export async function enrichProspect(sb: SB, prospect_id: string): Promise<{ sco
     })
   } else etapas.zerobounce = 'pulada'
 
-  for (const nome of ['similarweb', 'wappalyzer', 'instagram_seguidores', 'linkedin_decisor', 'sinais_de_timing']) etapas[nome] = 'não implementada'
+  etapas.tecnologias = dados.tecnologias ? 'ok' : 'pulada: sem site'
+  etapas.instagram_seguidores = dados.instagram_seguidores != null ? 'ok (vem da fonte de busca)' : 'pulada: perfil não veio de busca no Instagram'
+  for (const nome of ['similarweb', 'linkedin_decisor']) etapas[nome] = 'não implementada'
+
+  // Sinais de timing que dá para derivar de dados reais (mudança de cargo, contratações e rodadas de investimento exigem LinkedIn/Crunchbase).
+  const sinais: Record<string, any> = { ...(p.sinais_timing ?? {}) }
+  if (dados.cnpj?.abertura) {
+    const meses = (Date.now() - new Date(dados.cnpj.abertura).getTime()) / (30.44 * 24 * 3600e3)
+    if (meses >= 0 && meses <= 12) sinais.inauguracao_recente = { abertura: dados.cnpj.abertura, meses: Math.round(meses) }
+  }
+  const g = Number(dados.google_rating ?? 0)
+  const ga = Number(dados.google_avaliacoes ?? 0)
+  if (g > 0 && g < 3.5 && ga >= 10) sinais.avaliacoes_negativas = { nota: g, avaliacoes: ga }
+  if (dados.site && dados.site.ativo === false) sinais.site_fora_do_ar = { status: dados.site.status }
+  etapas.sinais_de_timing = Object.keys(sinais).length ? 'ok: ' + Object.keys(sinais).join(', ') : 'ok: nenhum sinal encontrado'
 
   // Aderência ao ICP (Haiku)
   let fit: Fit | null = null
@@ -210,7 +252,7 @@ export async function enrichProspect(sb: SB, prospect_id: string): Promise<{ sco
   maturidade = temDado ? Math.min(20, maturidade) : 8
   const score = clamp(contato + aderencia + presenca + maturidade, 0, 100)
 
-  const motivoDescarte = f?.excluir ? `critério de exclusão: ${f.motivo_exclusao}` : score < c.score_minimo ? `score ${score} abaixo do mínimo da campanha (${c.score_minimo})` : null
+  const motivoDescarte = f?.excluir ? `critério de exclusão: ${f.motivo_exclusao}` : score < c.score_minimo && p.fonte !== 'inbound' ? `score ${score} abaixo do mínimo da campanha (${c.score_minimo})` : null // inbound: a pessoa nos procurou
   const status = motivoDescarte ? 'descartado' : p.status
 
   const { error } = await sb
@@ -219,6 +261,7 @@ export async function enrichProspect(sb: SB, prospect_id: string): Promise<{ sco
       ...upd,
       score,
       score_detalhes: { contactabilidade: contato, aderencia_icp: aderencia, presenca_digital: presenca, maturidade, ...(motivoDescarte ? { descarte: motivoDescarte } : {}), fit },
+      sinais_timing: sinais,
       dados_enriquecimento: { ...dados, etapas },
       enriched_at: new Date().toISOString(),
       status,

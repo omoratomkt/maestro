@@ -1,4 +1,5 @@
-import { Pencil, Pause, Play, Square } from 'lucide-react'
+import { Pencil, Pause, Play, Search, Square, Trash2 } from 'lucide-react'
+import { useState } from 'react'
 import { toast } from 'sonner'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -8,15 +9,42 @@ import { CANAIS, FONTES, STATUS_CAMPANHA, labelOf } from '@/lib/constants'
 
 interface Props {
   campanha: Campanha
-  onStatus: (id: string, status: Campanha['status']) => Promise<void>
+  onStatus: (id: string, status: Campanha['status']) => Promise<string | null>
   onEdit: (c: Campanha) => void
+  onSearch: (id: string) => Promise<string>
+  onDelete: (id: string) => Promise<void>
 }
 
-export function CampaignCard({ campanha: c, onStatus, onEdit }: Props) {
+export function CampaignCard({ campanha: c, onStatus, onEdit, onSearch, onDelete }: Props) {
+  const [searching, setSearching] = useState(false)
+  const isDemo = c.nome.startsWith('[DEMO]')
+
+  async function search() {
+    setSearching(true)
+    try {
+      toast.info(`Busca de prospects: ${await onSearch(c.id)}`, { duration: 12000 })
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : 'Erro na busca')
+    } finally {
+      setSearching(false)
+    }
+  }
+
+  async function remove() {
+    if (!window.confirm(`Excluir a campanha "${c.nome}"? Só é possível se ela não tiver prospects.`)) return
+    try {
+      await onDelete(c.id)
+      toast.success('Campanha excluída.')
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : 'Erro ao excluir')
+    }
+  }
+
   async function change(status: Campanha['status']) {
     try {
-      await onStatus(c.id, status)
+      const busca = await onStatus(c.id, status)
       toast.success(`Campanha ${STATUS_CAMPANHA[status].toLowerCase()}.`)
+      if (busca) toast.info(`Busca de prospects: ${busca}`, { duration: 12000 })
     } catch (e) {
       toast.error(e instanceof Error ? e.message : 'Erro ao atualizar campanha')
     }
@@ -67,6 +95,16 @@ export function CampaignCard({ campanha: c, onStatus, onEdit }: Props) {
           ) : c.status !== 'encerrada' ? (
             <Button size="sm" variant="outline" onClick={() => change('ativa')}>
               <Play /> {c.status === 'rascunho' ? 'Lançar' : 'Reativar'}
+            </Button>
+          ) : null}
+          {c.status === 'ativa' && !isDemo ? (
+            <Button size="sm" variant="outline" disabled={searching} onClick={search}>
+              <Search /> {searching ? 'Buscando…' : 'Buscar agora'}
+            </Button>
+          ) : null}
+          {c.status === 'rascunho' || c.status === 'encerrada' ? (
+            <Button size="sm" variant="ghost" onClick={remove}>
+              <Trash2 /> Excluir
             </Button>
           ) : null}
           {c.status !== 'encerrada' ? (

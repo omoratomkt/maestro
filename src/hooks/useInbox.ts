@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { useTableChanges } from '@/lib/realtime'
 import { supabase } from '@/lib/supabase'
 import type { Tables } from '@/types/database'
 
@@ -17,6 +18,8 @@ export function useInbox() {
   const [messages, setMessages] = useState<InboxMessage[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [tick, setTick] = useState(0)
+  useTableChanges(['prospect_interacoes', 'fila_acoes'], () => setTick((t) => t + 1))
 
   useEffect(() => {
     let active = true
@@ -52,7 +55,7 @@ export function useInbox() {
     return () => {
       active = false
     }
-  }, [])
+  }, [tick])
 
   return { messages, loading, error, truncated: messages.length >= LIMIT }
 }

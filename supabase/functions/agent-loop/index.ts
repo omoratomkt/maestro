@@ -3,6 +3,7 @@
 //
 // Em cada rodada, nesta ordem:
 //   1. expira ações pendentes vencidas (o prospect volta para a fila de decisão do agente)
+//   1b. busca novos prospects nas fontes (1x por dia por campanha ativa, dentro da cota semanal)
 //   2. enriquece prospects novos (score de ICP; abaixo do mínimo são descartados)
 //   3. envia ações aprovadas que ainda não foram enviadas
 //   4. para cada prospect com proxima_acao_em <= agora: o agente decide e propõe a próxima ação
@@ -11,6 +12,7 @@
 import { proposeNextAction } from '../_shared/agent.ts'
 import { enrichProspect } from '../_shared/enrich.ts'
 import { executeAction } from '../_shared/execute.ts'
+import { runSources } from '../_shared/sources.ts'
 import { corsHeaders, errMessage, isCronAuthorized, json, readJson, serviceClient } from '../_shared/util.ts'
 
 const TIME_BUDGET_MS = 110_000 // o limite da Edge Function é 150 s
@@ -27,7 +29,7 @@ Deno.serve(async (req) => {
   const started = Date.now()
   const timeLeft = () => TIME_BUDGET_MS - (Date.now() - started) > 0
   const sb = serviceClient()
-  const report: Record<string, any> = { followup, expiradas: 0, enriquecidos: [], enviadas: [], decisoes: [], erros: [] }
+  const report: Record<string, any> = { followup, expiradas: 0, buscas: [], enriquecidos: [], enviadas: [], decisoes: [], erros: [] }
   const nowIso = () => new Date().toISOString()
 
   // 1) Expirar pendentes vencidas
@@ -42,8 +44,26 @@ Deno.serve(async (req) => {
     await sb.from('prospect_estado').upsert({ prospect_id: e.prospect_id, aguardando: 'tempo', proxima_acao_em: nowIso(), atualizado_em: nowIso() }, { onConflict: 'prospect_id' })
   }
 
+  // 1b) Buscar prospects: 1x por dia por campanha ativa (nunca nas de demonstração), no máximo 2 campanhas por rodada
+  const { data: ativas } = await sb.from('campanhas').select('*').eq('status', 'ativa').not('nome', 'like', '[DEMO]%')
+  const desdeBusca = new Date(Date.now() - 20 * 3600e3).toISOString()
+  let buscou = 0
+  for (const c of ativas ?? []) {
+    if (buscou >= 2 || !timeLeft()) break
+    const { data: recente } = await sb.from('source_log').select('id').eq('campanha_id', c.id).gte('executado_em', desdeBusca).limit(1)
+    if (recente?.length) continue
+    try {
+      const r = await runSources(sb, c)
+      report.buscas.push({ campanha_id: c.id, inseridos: r.inseridos, fontes: r.fontes })
+      buscou++
+      // Sem nada a buscar (sem fontes executáveis ou cota cheia) não deixa rastro em source_log: marca a checagem.
+      if (!r.inseridos) await sb.from('source_log').insert({ workspace_id: c.workspace_id, campanha_id: c.id, fonte: 'verificacao', consulta: 'ciclo diário sem novos', novos: 0, total: 0 })
+    } catch (e) {
+      report.erros.push({ etapa: 'buscar', campanha_id: c.id, erro: errMessage(e) })
+    }
+  }
+
   // 2) Enriquecer novos (campanhas ativas)
-  const { data: ativas } = await sb.from('campanhas').select('id').eq('status', 'ativa')
   const idsAtivas = (ativas ?? []).map((c: any) => c.id)
   if (idsAtivas.length) {
     const { data: novos } = await sb

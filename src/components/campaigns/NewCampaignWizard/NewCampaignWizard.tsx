@@ -17,7 +17,7 @@ const STEPS = ['Playbook', 'ICP', 'Canais e fontes', 'Persona', 'Revisar e lanç
 interface Props {
   open: boolean
   onOpenChange: (open: boolean) => void
-  onCreate: (input: TablesInsert<'campanhas'>) => Promise<void>
+  onCreate: (input: TablesInsert<'campanhas'>) => Promise<string | null>
   /** Se informado, o wizard edita esta campanha (sem o passo de playbook). */
   campaign?: Campanha
   onUpdate?: (id: string, patch: TablesUpdate<'campanhas'>) => Promise<void>
@@ -62,8 +62,9 @@ export function NewCampaignWizard({ open, onOpenChange, onCreate, campaign, onUp
         await onUpdate(campaign.id, { ...patch, atualizado_em: new Date().toISOString() })
         toast.success('Campanha atualizada.')
       } else {
-        await onCreate(draftToInsert(draft, workspaceId, status))
+        const busca = await onCreate(draftToInsert(draft, workspaceId, status))
         toast.success(status === 'ativa' ? 'Campanha lançada.' : 'Rascunho salvo.')
+        if (busca) toast.info(`Busca de prospects: ${busca}`, { duration: 12000 })
       }
       close(false)
     } catch (e) {

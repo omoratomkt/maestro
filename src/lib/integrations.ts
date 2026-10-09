@@ -8,6 +8,8 @@ export interface IntegrationField {
   optional?: boolean
   placeholder?: string
   hint?: string
+  /** Campo de texto longo (ex.: JSON). */
+  multiline?: boolean
 }
 
 export interface IntegrationDef {
@@ -17,6 +19,8 @@ export interface IntegrationDef {
   fields: IntegrationField[]
   /** Edge Function que recebe as respostas deste canal (precisa do campo webhook_secret). */
   webhook?: string
+  /** O provedor assina a chamada (ex.: Cal.com); a URL não leva o token. */
+  webhookSigned?: boolean
   note?: string
 }
 
@@ -91,7 +95,7 @@ export const INTEGRATIONS: IntegrationDef[] = [
     label: 'Instagram DM (Meta API)',
     group: 'Canais de saída',
     webhook: 'webhook-instagram',
-    note: 'A Meta só permite responder a quem já escreveu. Sem envio de primeira mensagem.',
+    note: 'A Meta só permite responder a quem já escreveu, dentro de 24 h. O agente só usa este canal nesses casos.',
     fields: [
       { key: 'access_token', label: 'Access token', secret: true },
       { key: 'instagram_account_id', label: 'Instagram account ID' },
@@ -100,13 +104,33 @@ export const INTEGRATIONS: IntegrationDef[] = [
     ],
   },
   { tipo: 'google_places', label: 'Google Places', group: 'Fontes de dados', fields: [apiKey] },
-  { tipo: 'apollo', label: 'Apollo.io', group: 'Fontes de dados', fields: [apiKey], note: 'Fonte ainda não implementada.' },
+  { tipo: 'apollo', label: 'Apollo.io', group: 'Fontes de dados', fields: [apiKey], note: 'A busca é grátis; cada pessoa aproveitada gasta 1 crédito do Apollo (people/match), até 15 por rodada.' },
   { tipo: 'hunter', label: 'Hunter.io', group: 'Fontes de dados', fields: [apiKey] },
   { tipo: 'zerobounce', label: 'ZeroBounce', group: 'Fontes de dados', fields: [apiKey] },
   { tipo: 'similarweb', label: 'SimilarWeb', group: 'Fontes de dados', fields: [apiKey], note: 'Ainda não usado pelo enriquecimento.' },
   { tipo: 'crunchbase', label: 'Crunchbase', group: 'Fontes de dados', fields: [apiKey], note: 'Ainda não usado pelo enriquecimento.' },
-  { tipo: 'phantombuster', label: 'Phantombuster', group: 'Fontes de dados', fields: [apiKey], note: 'Fonte ainda não implementada.' },
-  { tipo: 'apify', label: 'Apify', group: 'Fontes de dados', fields: [{ key: 'api_token', label: 'API token', secret: true }], note: 'Fonte ainda não implementada.' },
+  { tipo: 'phantombuster', label: 'Phantombuster', group: 'Fontes de dados', fields: [apiKey], note: 'Não usado: as fontes de LinkedIn e Instagram rodam pelo Apify.' },
+  {
+    tipo: 'apify',
+    label: 'Apify (Instagram e LinkedIn)',
+    group: 'Fontes de dados',
+    note: 'Instagram usa por padrão o ator apify/instagram-scraper. LinkedIn exige ator e entrada próprios (o scraping do LinkedIn viola os Termos de Uso da plataforma). Use {{query}} e {{limit}} na entrada JSON.',
+    fields: [
+      { key: 'api_token', label: 'API token', secret: true },
+      { key: 'actor_instagram', label: 'Ator do Instagram (opcional)', optional: true, placeholder: 'apify/instagram-scraper' },
+      { key: 'input_instagram', label: 'Entrada JSON do Instagram (opcional)', optional: true, multiline: true, placeholder: '{"search":"{{query}}","searchType":"user","searchLimit":{{limit}},"resultsType":"details"}' },
+      { key: 'actor_linkedin', label: 'Ator do LinkedIn', optional: true, placeholder: 'dono/nome-do-ator' },
+      { key: 'input_linkedin', label: 'Entrada JSON do LinkedIn', optional: true, multiline: true, placeholder: '{"searchQuery":"{{query}}","maxItems":{{limit}}}' },
+    ],
+  },
+  {
+    tipo: 'inbound_webhook',
+    label: 'Leads inbound (formulários, site, Zapier)',
+    group: 'Fontes de dados',
+    webhook: 'webhook-lead',
+    note: 'Envie um POST JSON (nome_empresa, nome_contato, email, whatsapp, mensagem...) para a URL abaixo. A campanha é a única ativa com a fonte "inbound", ou a que você indicar.',
+    fields: [{ key: 'campaign_id', label: 'ID da campanha de destino', optional: true }, webhookSecret],
+  },
   { tipo: 'anthropic', label: 'Anthropic (Claude)', group: 'IA', fields: [apiKey], note: 'Usada pelo agente (Sonnet), triagem e qualificação (Haiku).' },
   {
     tipo: 'morato_crm',
@@ -126,8 +150,13 @@ export const INTEGRATIONS: IntegrationDef[] = [
     tipo: 'calcom',
     label: 'Cal.com',
     group: 'Calendário',
-    fields: [apiKey, { key: 'event_type_id', label: 'Event type ID' }],
-    note: 'Ainda não usado: o agendamento automático não foi implementado.',
+    webhook: 'webhook-calcom',
+    webhookSigned: true,
+    note: 'O agente envia o link de agendamento quando o lead é qualificado. O webhook do Cal.com (BOOKING_CREATED, RESCHEDULED, CANCELLED) atualiza o lead e o pipeline. Informe o mesmo segredo no campo Secret do webhook.',
+    fields: [
+      { key: 'booking_url', label: 'Link de agendamento', placeholder: 'https://cal.com/seu-usuario/30min' },
+      webhookSecret,
+    ],
   },
 ]
 

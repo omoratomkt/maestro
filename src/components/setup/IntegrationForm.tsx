@@ -5,6 +5,7 @@ import { Field } from '@/components/campaigns/NewCampaignWizard/fields'
 import { Button } from '@/components/ui/button'
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { Input } from '@/components/ui/input'
+import { Textarea } from '@/components/ui/textarea'
 import type { Integracao } from '@/hooks/useIntegrations'
 import { maskSecret, randomSecret, type IntegrationDef } from '@/lib/integrations'
 import type { Json } from '@/types/database'
@@ -29,7 +30,7 @@ export function IntegrationForm({ def, workspaceId, current, onClose, onSave, on
 
   const secretForUrl = values.webhook_secret || (typeof saved.webhook_secret === 'string' ? saved.webhook_secret : '')
   const webhookUrl = def.webhook
-    ? `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/${def.webhook}?ws=${workspaceId}&token=${secretForUrl || '<segredo>'}`
+    ? `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/${def.webhook}?ws=${workspaceId}${def.webhookSigned ? '' : `&token=${secretForUrl || '<segredo>'}`}`
     : null
 
   async function submit() {
@@ -68,13 +69,17 @@ export function IntegrationForm({ def, workspaceId, current, onClose, onSave, on
               hint={[f.hint, f.secret && saved[f.key] ? `Salvo: ${maskSecret(saved[f.key])}. Deixe em branco para manter.` : null].filter(Boolean).join(' ') || undefined}
             >
               <div className="flex gap-2">
-                <Input
-                  type={f.secret && f.key !== 'webhook_secret' ? 'password' : 'text'}
-                  autoComplete="off"
-                  placeholder={f.placeholder}
-                  value={values[f.key]}
-                  onChange={(e) => setValues({ ...values, [f.key]: e.target.value })}
-                />
+                {f.multiline ? (
+                  <Textarea rows={3} className="font-mono text-xs" placeholder={f.placeholder} value={values[f.key]} onChange={(e) => setValues({ ...values, [f.key]: e.target.value })} />
+                ) : (
+                  <Input
+                    type={f.secret && f.key !== 'webhook_secret' ? 'password' : 'text'}
+                    autoComplete="off"
+                    placeholder={f.placeholder}
+                    value={values[f.key]}
+                    onChange={(e) => setValues({ ...values, [f.key]: e.target.value })}
+                  />
+                )}
                 {f.key === 'webhook_secret' ? (
                   <Button type="button" variant="outline" onClick={() => setValues({ ...values, webhook_secret: randomSecret() })}>
                     Gerar
@@ -93,7 +98,7 @@ export function IntegrationForm({ def, workspaceId, current, onClose, onSave, on
                   variant="outline"
                   size="icon"
                   aria-label="Copiar URL"
-                  disabled={!secretForUrl}
+                  disabled={!def.webhookSigned && !secretForUrl}
                   onClick={() => navigator.clipboard.writeText(webhookUrl).then(() => toast.success('URL copiada.'))}
                 >
                   <Copy />

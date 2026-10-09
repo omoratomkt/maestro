@@ -43,9 +43,19 @@ Deno.serve(async (req) => {
     for (const entry of b.entry ?? [])
       for (const ev of entry.messaging ?? []) {
         if (!ev.message?.text || ev.message.is_echo) continue
-        // Resolve o IGSID para o prospect (guardado em dados_enriquecimento.instagram_id).
-        const { data } = await sb.from('prospects').select('instagram_handle').eq('workspace_id', auth.workspace_id).eq('dados_enriquecimento->>instagram_id', String(ev.sender?.id)).limit(1)
-        const handle = data?.[0]?.instagram_handle
+        // Resolve o IGSID para o prospect: primeiro pelo vínculo já guardado; senão consulta o @username na Graph API.
+        const igsid = String(ev.sender?.id)
+        const { data } = await sb.from('prospects').select('instagram_handle').eq('workspace_id', auth.workspace_id).eq('dados_enriquecimento->>instagram_id', igsid).limit(1)
+        let handle: string | undefined = data?.[0]?.instagram_handle
+        if (!handle) {
+          const r = await fetch(`https://graph.facebook.com/v21.0/${igsid}?fields=username`, { headers: { Authorization: `Bearer ${auth.config.access_token}` } })
+          const username: string | undefined = r.ok ? (await r.json()).username : undefined
+          if (!username) continue
+          const { data: p } = await sb.from('prospects').select('id, instagram_handle, dados_enriquecimento').eq('workspace_id', auth.workspace_id).ilike('instagram_handle', username).limit(1)
+          if (!p?.[0]) continue
+          handle = p[0].instagram_handle
+          await sb.from('prospects').update({ dados_enriquecimento: { ...(p[0].dados_enriquecimento ?? {}), instagram_id: igsid } }).eq('id', p[0].id)
+        }
         if (!handle) continue
         jobs.push(
           handleInbound(sb, {

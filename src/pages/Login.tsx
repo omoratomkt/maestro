@@ -1,4 +1,5 @@
 import { Sparkles } from 'lucide-react'
+import { toast } from 'sonner'
 import { useState, type FormEvent } from 'react'
 import { Navigate } from 'react-router-dom'
 import { Button } from '@/components/ui/button'
@@ -23,6 +24,14 @@ export default function Login() {
     const { error: err } = await supabase.auth.signInWithPassword({ email, password })
     if (err) setError('Email ou senha inválidos.')
     setSubmitting(false)
+  }
+
+  async function forgot() {
+    if (!email) return toast.error('Digite seu email acima para receber o link.')
+    const { error: err } = await supabase.auth.resetPasswordForEmail(email, { redirectTo: `${window.location.origin}/definir-senha` })
+    // Resposta igual para email existente ou não: não revela quem tem conta.
+    if (err && err.status !== 400) toast.error('Não foi possível enviar o email agora. Tente novamente.')
+    else toast.success('Se o email existir, o link para redefinir a senha já está a caminho.')
   }
 
   return (
@@ -57,6 +66,9 @@ export default function Login() {
             <Button type="submit" className="w-full" disabled={submitting}>
               {submitting ? 'Entrando…' : 'Entrar'}
             </Button>
+            <button type="button" onClick={forgot} className="w-full text-center text-xs text-muted-foreground underline">
+              Esqueci minha senha
+            </button>
           </form>
         </CardContent>
       </Card>

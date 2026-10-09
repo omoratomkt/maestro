@@ -55,6 +55,19 @@ export async function executeAction(sb: SB, fila_id: string): Promise<ExecuteRes
     }
 
     // Dados de demonstração: nada sai para ninguém; o envio é simulado para a conversa e o estado seguirem o fluxo real.
+    let igsid: string | null = null
+    if (claimed.canal === 'instagram') {
+      const { data: last } = await sb
+        .from('prospect_interacoes')
+        .select('metadata')
+        .eq('prospect_id', p.id)
+        .eq('canal', 'instagram')
+        .eq('direcao', 'in')
+        .order('enviado_em', { ascending: false })
+        .limit(1)
+      igsid = (last?.[0]?.metadata as { igsid?: string } | undefined)?.igsid ?? null
+    }
+
     const sent =
       p.fonte === 'demo'
         ? { provider: 'simulado', message_id: undefined, metadata: { simulado: true } }
@@ -65,6 +78,7 @@ export async function executeAction(sb: SB, fila_id: string): Promise<ExecuteRes
             texto,
             prospect: p,
             ultimaRespostaEmail,
+            igsid,
           })
 
     const agora = new Date().toISOString()

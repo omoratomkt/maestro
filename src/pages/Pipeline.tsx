@@ -12,7 +12,7 @@ import { useProspects, type Prospect } from '@/hooks/useProspects'
 import { toast } from 'sonner'
 
 export default function Pipeline() {
-  const { prospects, loading, error, truncated, setStatus, importMany } = useProspects()
+  const { prospects, loading, error, truncated, loadMore, setStatus, importMany } = useProspects()
   const { campanhas } = useCampaigns()
   const [view, setView] = useState<'kanban' | 'lista'>('kanban')
   const [selectedId, setSelectedId] = useState<string | null>(null)
@@ -47,7 +47,12 @@ export default function Pipeline() {
 
       {error ? <p className="text-sm text-destructive">Erro ao carregar prospects: {error}</p> : null}
       {truncated ? (
-        <p className="mb-3 text-xs text-muted-foreground">Mostrando os 1000 prospects de maior score. Use a lista para filtrar.</p>
+        <div className="mb-3 flex items-center gap-3 text-xs text-muted-foreground">
+          Mostrando os {prospects.length} prospects de maior score.
+          <Button size="sm" variant="outline" onClick={loadMore}>
+            Carregar mais 1000
+          </Button>
+        </div>
       ) : null}
 
       {loading ? (

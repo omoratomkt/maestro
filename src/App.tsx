@@ -8,6 +8,7 @@ import Campaigns from '@/pages/Campaigns'
 import Dashboard from '@/pages/Dashboard'
 import Inbox from '@/pages/Inbox'
 import Login from '@/pages/Login'
+import SetPassword from '@/pages/SetPassword'
 import Metrics from '@/pages/Metrics'
 import Pipeline from '@/pages/Pipeline'
 import Queue from '@/pages/Queue'
@@ -22,6 +23,7 @@ export default function App() {
       <AuthProvider>
         <Routes>
           <Route path="login" element={<Login />} />
+          <Route path="definir-senha" element={<SetPassword />} />
           <Route element={<RequireAuth />}>
             <Route element={<AppLayout />}>
               <Route index element={<Dashboard />} />

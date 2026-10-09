@@ -1,17 +1,20 @@
 import { useCallback, useEffect, useState } from 'react'
+import { useTableChanges } from '@/lib/realtime'
 import { supabase } from '@/lib/supabase'
 import type { Tables, TablesInsert } from '@/types/database'
 
 export type Prospect = Tables<'prospects'>
 export type Interacao = Tables<'prospect_interacoes'>
 export type ProspectEstado = Tables<'prospect_estado'>
+export type Lead = Tables<'leads_qualificados'>
 
-const LIMIT = 1000
+const PAGE = 1000
 
 export function useProspects() {
   const [prospects, setProspects] = useState<Prospect[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [limit, setLimit] = useState(PAGE)
 
   const reload = useCallback(async () => {
     const { data, error: err } = await supabase
@@ -19,19 +22,20 @@ export function useProspects() {
       .select('*')
       .order('score', { ascending: false, nullsFirst: false })
       .order('criado_em', { ascending: false })
-      .limit(LIMIT)
+      .limit(limit)
     if (err) setError(err.message)
     else {
       setError(null)
       setProspects(data)
     }
     setLoading(false)
-  }, [])
+  }, [limit])
 
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect
     void reload()
   }, [reload])
+  useTableChanges(['prospects'], reload)
 
   /** Move o prospect de status (otimista; reverte se o banco recusar). */
   const setStatus = async (id: string, status: string) => {
@@ -55,13 +59,14 @@ export function useProspects() {
     await reload()
   }
 
-  return { prospects, loading, error, truncated: prospects.length >= LIMIT, setStatus, importMany, reload }
+  return { prospects, loading, error, truncated: prospects.length >= limit, loadMore: () => setLimit((l) => l + PAGE), setStatus, importMany, reload }
 }
 
 /** Histórico cross-canal e estado do agente de um prospect. */
 export function useProspectDetail(prospectId: string | null) {
   const [interacoes, setInteracoes] = useState<Interacao[]>([])
   const [estado, setEstado] = useState<ProspectEstado | null>(null)
+  const [lead, setLead] = useState<Lead | null>(null)
   const [loading, setLoading] = useState(false)
 
   useEffect(() => {
@@ -72,10 +77,12 @@ export function useProspectDetail(prospectId: string | null) {
     Promise.all([
       supabase.from('prospect_interacoes').select('*').eq('prospect_id', prospectId).order('enviado_em'),
       supabase.from('prospect_estado').select('*').eq('prospect_id', prospectId).maybeSingle(),
-    ]).then(([i, e]) => {
+      supabase.from('leads_qualificados').select('*').eq('prospect_id', prospectId).maybeSingle(),
+    ]).then(([i, e, l]) => {
       if (!active) return
       setInteracoes(i.data ?? [])
       setEstado(e.data)
+      setLead(l.data)
       setLoading(false)
     })
     return () => {
@@ -83,5 +90,16 @@ export function useProspectDetail(prospectId: string | null) {
     }
   }, [prospectId])
 
-  return { interacoes, estado, loading }
+  /** Atualiza o andamento da reunião do lead (realizada, no-show, cancelada...). */
+  const setStatusReuniao = async (status: string) => {
+    if (!lead) return
+    const { error } = await supabase
+      .from('leads_qualificados')
+      .update({ status_reuniao: status, atualizado_em: new Date().toISOString() })
+      .eq('id', lead.id)
+    if (error) throw new Error(error.message)
+    setLead({ ...lead, status_reuniao: status })
+  }
+
+  return { interacoes, estado, lead, setStatusReuniao, loading }
 }

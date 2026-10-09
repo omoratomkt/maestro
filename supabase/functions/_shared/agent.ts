@@ -2,6 +2,7 @@
 // O agente: lê o contexto completo do prospect (todos os canais) e decide o próximo passo.
 import { askClaude } from './anthropic.ts'
 import { availableChannels, type Canal } from './channels.ts'
+import { getCredentials } from './credentials.ts'
 import { firstName, nextBusinessSlot, type SB } from './util.ts'
 
 export type ProposeOutcome =
@@ -25,7 +26,7 @@ interface Decision {
 const TIPOS_AUTOMATIZAVEIS = ['primeira_mensagem', 'followup', 'reengajamento']
 const MAX_TENTATIVAS_POR_CANAL = 3
 
-function personaPrompt(c: any, canaisDisponiveis: string[]): string {
+function personaPrompt(c: any, canaisDisponiveis: string[], linkAgendamento: string | null): string {
   const objecoes = (Array.isArray(c.persona_objecoes) ? c.persona_objecoes : [])
     .map((o: any) => `- "${o.objecao}" → ${o.resposta}`)
     .join('\n')
@@ -53,7 +54,8 @@ Regras:
 - Se recusar claramente: decisao "encerrar", tipo "encerrar", com uma despedida curta e educada.
 - Se pedir para retomar mais tarde: decisao "aguardar" com aguardar_horas igual ao combinado.
 - Até ${MAX_TENTATIVAS_POR_CANAL} tentativas por canal sem resposta; depois mude de canal (se houver) ou encerre.
-- Quando todos os critérios obrigatórios já estiverem confirmados, não faça mais perguntas: proponha o próximo passo (conversa de 30 minutos) com duas opções de horário.
+- Quando todos os critérios obrigatórios já estiverem confirmados, não faça mais perguntas: proponha o próximo passo (conversa de 30 minutos). ${linkAgendamento ? `Envie este link para a pessoa escolher o horário: ${linkAgendamento}` : 'Ofereça duas opções de horário.'}
+- Se o contexto indicar origem "inbound", a pessoa entrou em contato por iniciativa própria: responda à mensagem inicial dela antes de qualquer pergunta de qualificação.
 - Se a última mensagem do prospect ainda não foi respondida, o tipo é "resposta". Se o prospect nunca foi contatado, o tipo é "primeira_mensagem".
 - Canais disponíveis agora: ${canaisDisponiveis.join(', ')}. Use apenas esses.
 - aguardar_horas: quantas horas esperar antes de olhar este prospect de novo (24 a 168 é o normal).
@@ -119,25 +121,40 @@ export async function proposeNextAction(sb: SB, prospect_id: string, opts: { fol
   const { data: abertas } = await sb.from('fila_acoes').select('id').eq('prospect_id', p.id).in('status', ['pendente', 'aprovada']).limit(1)
   if (abertas?.length) return { resultado: 'ignorado', motivo: 'já existe ação aguardando aprovação ou envio' }
 
-  const canais = await availableChannels(sb, { workspace_id: p.workspace_id, campanhaCanais: c.canais ?? [] })
+  const { data: msgs } = await sb
+    .from('prospect_interacoes')
+    .select('canal, direcao, conteudo, enviado_em, metadata')
+    .eq('prospect_id', p.id)
+    .order('enviado_em', { ascending: false })
+    .limit(30)
+
+  // Instagram só responde: exige mensagem recebida (com IGSID) nas últimas 24 h.
+  const limite24h = Date.now() - 24 * 3600e3
+  const igsidRecente = (msgs ?? []).some(
+    (m: any) => m.canal === 'instagram' && m.direcao === 'in' && m.metadata?.igsid && new Date(m.enviado_em).getTime() > limite24h,
+  )
+  const canais = await availableChannels(sb, { workspace_id: p.workspace_id, campanhaCanais: c.canais ?? [] }, { igsidRecente })
   const { data: estado } = await sb.from('prospect_estado').select('*').eq('prospect_id', p.id).maybeSingle()
   if (canais.length === 0) {
     await upsertEstado(sb, p.id, { aguardando: 'nenhum', proxima_acao_em: nextBusinessSlot(24).toISOString() })
     return { resultado: 'ignorado', motivo: 'nenhum canal disponível (integração ativa + envio implementado)' }
   }
-
-  const { data: msgs } = await sb
-    .from('prospect_interacoes')
-    .select('canal, direcao, conteudo, enviado_em')
-    .eq('prospect_id', p.id)
-    .order('enviado_em', { ascending: false })
-    .limit(30)
   const conversa = (msgs ?? []).reverse().map((m: any) => ({ quando: m.enviado_em, canal: m.canal, de: m.direcao === 'in' ? 'prospect' : 'nós', texto: m.conteudo }))
+
+  // Link de agendamento (Cal.com): se existir, a reunião é marcada pelo próprio prospect.
+  let linkAgendamento: string | null = null
+  try {
+    linkAgendamento = (await getCredentials(sb, p.workspace_id, 'calcom')).booking_url ?? null
+  } catch {
+    /* sem Cal.com configurado */
+  }
 
   const dados = p.dados_enriquecimento ?? {}
   const contexto = {
     agora: weekdayBrt(),
     modo_followup_em_lote: Boolean(opts.followup),
+    origem: p.fonte === 'inbound' ? 'inbound (a pessoa nos procurou)' : 'prospecção ativa',
+    mensagem_inicial_do_inbound: dados.mensagem_inicial ?? null,
     prospect: {
       empresa: p.nome_empresa,
       contato: p.nome_contato,
@@ -151,6 +168,8 @@ export async function proposeNextAction(sb: SB, prospect_id: string, opts: { fol
       sinais_de_timing: p.sinais_timing,
       site: dados.site?.titulo ?? p.website,
       google_rating: dados.google_rating,
+      tecnologias_do_site: dados.tecnologias,
+      instagram_seguidores: dados.instagram_seguidores,
     },
     memoria_anterior: estado?.contexto_resumo ?? null,
     tentativas_sem_resposta: {
@@ -168,7 +187,7 @@ export async function proposeNextAction(sb: SB, prospect_id: string, opts: { fol
     origem: 'agent',
     tier: 'sonnet',
     effort: 'medium',
-    system: personaPrompt(c, canais),
+    system: personaPrompt(c, canais, linkAgendamento),
     user: JSON.stringify(contexto),
     schema: decisionSchema(canais),
     maxTokens: 2500,

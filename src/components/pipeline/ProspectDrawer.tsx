@@ -1,5 +1,6 @@
 import { format } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
+import { toast } from 'sonner'
 import { ConversationThread } from '@/components/inbox/ConversationThread'
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from '@/components/ui/sheet'
 import { useProspectDetail, type Prospect } from '@/hooks/useProspects'
@@ -22,7 +23,9 @@ function Info({ label, value }: { label: string; value: string | number | null |
 }
 
 export function ProspectDrawer({ prospect: p, onClose, onStatus }: Props) {
-  const { interacoes, estado, loading } = useProspectDetail(p?.id ?? null)
+  const { interacoes, estado, lead, setStatusReuniao, loading } = useProspectDetail(p?.id ?? null)
+  const b = (lead?.briefing ?? {}) as Record<string, unknown>
+  const lista = (v: unknown) => (Array.isArray(v) ? v.map(String).join(' · ') : null)
   const fmt = (d: string | null) => (d ? format(new Date(d), "dd/MM/yyyy HH:mm", { locale: ptBR }) : null)
 
   return (
@@ -65,6 +68,40 @@ export function ProspectDrawer({ prospect: p, onClose, onStatus }: Props) {
                 <Info label="Primeiro contato" value={fmt(p.primeiro_contato_em)} />
                 <Info label="Última interação" value={fmt(p.ultima_interacao_em)} />
               </dl>
+
+              {lead ? (
+                <section className="space-y-2 rounded-lg border p-3">
+                  <div className="flex items-center justify-between">
+                    <h3 className="font-semibold">Lead qualificado</h3>
+                    {lead.score_temperatura !== null ? <span className="rounded bg-primary px-1.5 py-0.5 text-[10px] text-primary-foreground">{lead.score_temperatura}/10</span> : null}
+                  </div>
+                  <dl className="grid grid-cols-2 gap-2">
+                    <Info label="Dor principal" value={b.dor_principal as string} />
+                    <Info label="Orçamento" value={b.budget as string} />
+                    <Info label="Prazo" value={b.timeline as string} />
+                    <Info label="Decisor" value={b.e_decisor === undefined ? null : b.e_decisor ? 'Sim' : 'Não'} />
+                    <Info label="Sentimento" value={b.sentimento as string} />
+                    <Info label="Objeções" value={lista(b.objecoes)} />
+                  </dl>
+                  {b.resumo_conversa ? <p className="text-muted-foreground">{String(b.resumo_conversa)}</p> : null}
+                  {lead.proximo_passo ? <p><span className="font-medium">Próximo passo:</span> {lead.proximo_passo}</p> : null}
+                  <div className="flex items-center gap-2">
+                    <label className="font-medium">Reunião</label>
+                    <select
+                      className="h-8 flex-1 rounded-lg border bg-background px-2 text-sm"
+                      value={lead.status_reuniao ?? 'pendente'}
+                      onChange={(e) => setStatusReuniao(e.target.value).catch((err) => toast.error(err.message))}
+                    >
+                      {['pendente', 'agendada', 'realizada', 'no_show', 'cancelada'].map((s) => (
+                        <option key={s} value={s}>
+                          {s}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                  {lead.reuniao_em ? <p className="text-muted-foreground">Marcada para {fmt(lead.reuniao_em)}</p> : null}
+                </section>
+              ) : null}
 
               {estado ? (
                 <section className="space-y-1 rounded-lg border p-3">

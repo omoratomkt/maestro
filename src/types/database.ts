@@ -658,6 +658,57 @@ export type Database = {
           },
         ]
       }
+      source_log: {
+        Row: {
+          campanha_id: string
+          consulta: string
+          erro: string | null
+          executado_em: string
+          fonte: string
+          id: string
+          novos: number
+          total: number
+          workspace_id: string
+        }
+        Insert: {
+          campanha_id: string
+          consulta: string
+          erro?: string | null
+          executado_em?: string
+          fonte: string
+          id?: string
+          novos?: number
+          total?: number
+          workspace_id: string
+        }
+        Update: {
+          campanha_id?: string
+          consulta?: string
+          erro?: string | null
+          executado_em?: string
+          fonte?: string
+          id?: string
+          novos?: number
+          total?: number
+          workspace_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "source_log_campanha_id_fkey"
+            columns: ["campanha_id"]
+            isOneToOne: false
+            referencedRelation: "campanhas"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "source_log_workspace_id_fkey"
+            columns: ["workspace_id"]
+            isOneToOne: false
+            referencedRelation: "workspaces"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       workspace_usuarios: {
         Row: {
           criado_em: string
