@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { useAuth } from '@/lib/auth'
 import { useTableChanges } from '@/lib/realtime'
 import { supabase } from '@/lib/supabase'
 import type { Tables } from '@/types/database'
@@ -15,6 +16,7 @@ const LIMIT = 600
 
 /** Respostas recebidas (direcao = 'in') em todos os canais, da mais recente para a mais antiga. */
 export function useInbox() {
+  const { workspaceId } = useAuth()
   const [messages, setMessages] = useState<InboxMessage[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -27,10 +29,11 @@ export function useInbox() {
       // Busca as duas direções para saber se uma resposta já foi respondida depois.
       supabase
         .from('prospect_interacoes')
-        .select('*, prospects(nome_empresa, nome_contato, cargo)')
+        .select('*, prospects!inner(nome_empresa, nome_contato, cargo, workspace_id)')
+        .eq('prospects.workspace_id', workspaceId ?? '')
         .order('enviado_em', { ascending: false })
         .limit(LIMIT),
-      supabase.from('fila_acoes').select('prospect_id').eq('tipo', 'resposta').in('status', ['pendente', 'aprovada']),
+      supabase.from('fila_acoes').select('prospect_id').eq('workspace_id', workspaceId ?? '').eq('tipo', 'resposta').in('status', ['pendente', 'aprovada']),
     ]).then(([all, fila]) => {
       if (!active) return
       const err = all.error ?? fila.error
@@ -55,7 +58,7 @@ export function useInbox() {
     return () => {
       active = false
     }
-  }, [tick])
+  }, [tick, workspaceId])
 
   return { messages, loading, error, truncated: messages.length >= LIMIT }
 }

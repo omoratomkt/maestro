@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from 'react'
+import { useAuth } from '@/lib/auth'
 import { callFunction } from '@/lib/functions'
 import { supabase } from '@/lib/supabase'
 import type { Tables, TablesInsert, TablesUpdate } from '@/types/database'
@@ -19,14 +20,17 @@ export function formatSearchReport(r: SearchReport): string {
 }
 
 export function useCampaigns() {
+  const { workspaceId } = useAuth()
   const [campanhas, setCampanhas] = useState<Campanha[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
   const reload = useCallback(async () => {
+    if (!workspaceId) return
     const { data, error: err } = await supabase
       .from('campanhas')
       .select('*')
+      .eq('workspace_id', workspaceId)
       .order('criado_em', { ascending: false })
     if (err) setError(err.message)
     else {
@@ -34,7 +38,7 @@ export function useCampaigns() {
       setCampanhas(data as Campanha[])
     }
     setLoading(false)
-  }, [])
+  }, [workspaceId])
 
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect

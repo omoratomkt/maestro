@@ -10,17 +10,20 @@ const notifyQueueChanged = () => window.dispatchEvent(new Event(QUEUE_EVENT))
 
 /** Quantidade de ações pendentes na fila de supervisão (badge da sidebar). */
 export function usePendingQueueCount() {
+  const { workspaceId } = useAuth()
   const [count, setCount] = useState<number | null>(null)
 
   const load = useCallback(() => {
+    if (!workspaceId) return
     supabase
       .from('fila_acoes')
       .select('id', { count: 'exact', head: true })
+      .eq('workspace_id', workspaceId)
       .eq('status', 'pendente')
       .then(({ count: c, error }) => {
         if (!error) setCount(c ?? 0)
       })
-  }, [])
+  }, [workspaceId])
 
   useEffect(() => {
     load()
@@ -46,7 +49,7 @@ async function executeOnServer(filaId: string): Promise<SendResult> {
   return r.ok ? { enviado: Boolean(r.data?.ok), detalhe: r.data?.detalhe ?? '' } : { enviado: false, detalhe: r.error ?? 'erro desconhecido' }
 }
 
-const SELECT = '*, prospects(nome_empresa, nome_contato, cargo, score), campanhas(nome)'
+const SELECT = '*, prospects!fila_acoes_prospect_id_fkey(nome_empresa, nome_contato, cargo, score), campanhas!fila_acoes_campanha_id_fkey(nome)'
 
 /** Ações pendentes de aprovação, ações aprovadas com falha de envio e as operações da fila. */
 export function useQueue() {
@@ -57,9 +60,10 @@ export function useQueue() {
   const [error, setError] = useState<string | null>(null)
 
   const reload = useCallback(async () => {
+    if (!workspaceId) return
     const [pend, fail] = await Promise.all([
-      supabase.from('fila_acoes').select(SELECT).eq('status', 'pendente').order('criado_em', { ascending: true }),
-      supabase.from('fila_acoes').select(SELECT).eq('status', 'aprovada').not('erro_execucao', 'is', null).order('criado_em', { ascending: true }),
+      supabase.from('fila_acoes').select(SELECT).eq('workspace_id', workspaceId).eq('status', 'pendente').order('criado_em', { ascending: true }),
+      supabase.from('fila_acoes').select(SELECT).eq('workspace_id', workspaceId).eq('status', 'aprovada').not('erro_execucao', 'is', null).order('criado_em', { ascending: true }),
     ])
     const err = pend.error ?? fail.error
     if (err) setError(err.message)
@@ -69,7 +73,7 @@ export function useQueue() {
       setFalhas((fail.data ?? []) as FilaAcao[])
     }
     setLoading(false)
-  }, [])
+  }, [workspaceId])
 
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect

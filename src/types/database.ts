@@ -246,6 +246,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "fila_acoes_campanha_ws_fkey"
+            columns: ["campanha_id", "workspace_id"]
+            isOneToOne: false
+            referencedRelation: "campanhas"
+            referencedColumns: ["id", "workspace_id"]
+          },
+          {
             foreignKeyName: "fila_acoes_fluxo_automatico_id_fkey"
             columns: ["fluxo_automatico_id"]
             isOneToOne: false
@@ -258,6 +265,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "prospects"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "fila_acoes_prospect_ws_fkey"
+            columns: ["prospect_id", "workspace_id"]
+            isOneToOne: false
+            referencedRelation: "prospects"
+            referencedColumns: ["id", "workspace_id"]
           },
           {
             foreignKeyName: "fila_acoes_workspace_id_fkey"
@@ -337,6 +351,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "workspaces"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "fluxos_campanha_ws_fkey"
+            columns: ["campanha_id", "workspace_id"]
+            isOneToOne: false
+            referencedRelation: "campanhas"
+            referencedColumns: ["id", "workspace_id"]
           },
         ]
       }
@@ -428,6 +449,13 @@ export type Database = {
           workspace_id?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "leads_prospect_ws_fkey"
+            columns: ["prospect_id", "workspace_id"]
+            isOneToOne: false
+            referencedRelation: "prospects"
+            referencedColumns: ["id", "workspace_id"]
+          },
           {
             foreignKeyName: "leads_qualificados_prospect_id_fkey"
             columns: ["prospect_id"]
@@ -677,6 +705,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "prospects_campanha_ws_fkey"
+            columns: ["campanha_id", "workspace_id"]
+            isOneToOne: false
+            referencedRelation: "campanhas"
+            referencedColumns: ["id", "workspace_id"]
+          },
+          {
             foreignKeyName: "prospects_workspace_id_fkey"
             columns: ["workspace_id"]
             isOneToOne: false
@@ -726,6 +761,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "campanhas"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "source_log_campanha_ws_fkey"
+            columns: ["campanha_id", "workspace_id"]
+            isOneToOne: false
+            referencedRelation: "campanhas"
+            referencedColumns: ["id", "workspace_id"]
           },
           {
             foreignKeyName: "source_log_workspace_id_fkey"
@@ -843,7 +885,7 @@ export type Database = {
     Functions: {
       get_workspace_ids_for_user: { Args: never; Returns: string[] }
       is_super_admin: { Args: never; Returns: boolean }
-      metricas_resumo: { Args: { dias?: number }; Returns: Json }
+      metricas_resumo: { Args: { dias?: number; p_ws?: string }; Returns: Json }
     }
     Enums: {
       [_ in never]: never

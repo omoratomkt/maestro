@@ -5,12 +5,14 @@ import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { useIntegrations, useWorkspaces } from '@/hooks/useIntegrations'
+import { useAuth } from '@/lib/auth'
 import { INTEGRATION_GROUPS, INTEGRATIONS, type IntegrationDef } from '@/lib/integrations'
 
 export default function Integrations() {
   const { workspaces, loading: loadingWs } = useWorkspaces()
+  const ativo = useAuth().workspaceId
   const [chosen, setChosen] = useState<string | null>(null)
-  const workspaceId = chosen ?? workspaces[0]?.id ?? null
+  const workspaceId = chosen ?? ativo ?? workspaces[0]?.id ?? null
   const { items, loading, error, save, remove } = useIntegrations(workspaceId)
   const [editing, setEditing] = useState<IntegrationDef | null>(null)
 

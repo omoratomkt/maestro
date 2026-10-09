@@ -61,7 +61,7 @@ export function Sidebar() {
   const inSetup = pathname.startsWith('/setup')
   const items = inSetup ? setupNav : operationalNav
   const pending = usePendingQueueCount()
-  const { isSuperAdmin, signOut, session } = useAuth()
+  const { isSuperAdmin, signOut, session, workspaces, workspaceId, setWorkspaceId } = useAuth()
 
   return (
     <UiSidebar>
@@ -75,6 +75,22 @@ export function Sidebar() {
             <p className="text-xs text-muted-foreground">{inSetup ? 'Setup' : 'Painel operacional'}</p>
           </div>
         </div>
+        {workspaces.length > 1 ? (
+          <select
+            aria-label="Cliente (workspace)"
+            className="mt-3 h-8 w-full rounded-lg border bg-background px-2 text-sm"
+            value={workspaceId ?? ''}
+            onChange={(e) => setWorkspaceId(e.target.value)}
+          >
+            {workspaces.map((w) => (
+              <option key={w.id} value={w.id}>
+                {w.nome}
+              </option>
+            ))}
+          </select>
+        ) : workspaces[0] ? (
+          <p className="mt-2 truncate text-xs font-medium">{workspaces[0].nome}</p>
+        ) : null}
       </SidebarHeader>
 
       <SidebarContent>

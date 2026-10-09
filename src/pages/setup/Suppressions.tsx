@@ -5,6 +5,7 @@ import { PageShell } from '@/components/layout/PageShell'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { useWorkspaces } from '@/hooks/useIntegrations'
+import { useAuth } from '@/lib/auth'
 import { normalizarSupressao, TIPOS_SUPRESSAO } from '@/lib/suppression'
 import { supabase } from '@/lib/supabase'
 import type { Tables } from '@/types/database'
@@ -13,8 +14,9 @@ type Supressao = Tables<'supressoes'>
 
 export default function Suppressions() {
   const { workspaces } = useWorkspaces()
+  const ativo = useAuth().workspaceId
   const [chosen, setChosen] = useState<string | null>(null)
-  const workspaceId = chosen ?? workspaces[0]?.id ?? null
+  const workspaceId = chosen ?? ativo ?? workspaces[0]?.id ?? null
   const [items, setItems] = useState<Supressao[]>([])
   const [error, setError] = useState<string | null>(null)
   const [tipo, setTipo] = useState('email')

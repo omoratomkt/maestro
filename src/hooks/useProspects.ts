@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from 'react'
+import { useAuth } from '@/lib/auth'
 import { useTableChanges } from '@/lib/realtime'
 import { supabase } from '@/lib/supabase'
 import type { Tables, TablesInsert } from '@/types/database'
@@ -11,15 +12,18 @@ export type Lead = Tables<'leads_qualificados'>
 const PAGE = 1000
 
 export function useProspects() {
+  const { workspaceId } = useAuth()
   const [prospects, setProspects] = useState<Prospect[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [limit, setLimit] = useState(PAGE)
 
   const reload = useCallback(async () => {
+    if (!workspaceId) return
     const { data, error: err } = await supabase
       .from('prospects')
       .select('*')
+      .eq('workspace_id', workspaceId)
       .order('score', { ascending: false, nullsFirst: false })
       .order('criado_em', { ascending: false })
       .limit(limit)
@@ -29,7 +33,7 @@ export function useProspects() {
       setProspects(data)
     }
     setLoading(false)
-  }, [limit])
+  }, [limit, workspaceId])
 
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect

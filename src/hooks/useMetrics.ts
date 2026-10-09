@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { useAuth } from '@/lib/auth'
 import { supabase } from '@/lib/supabase'
 
 export interface MetricsSummary {
@@ -15,6 +16,7 @@ export interface MetricsSummary {
 
 /** Agregados do período (função SQL metricas_resumo, com RLS do usuário). */
 export function useMetrics(dias: number) {
+  const { workspaceId } = useAuth()
   const [data, setData] = useState<MetricsSummary | null>(null)
   const [error, setError] = useState<string | null>(null)
 
@@ -22,7 +24,7 @@ export function useMetrics(dias: number) {
     let active = true
     // eslint-disable-next-line react-hooks/set-state-in-effect
     setData(null)
-    supabase.rpc('metricas_resumo', { dias }).then(({ data: d, error: err }) => {
+    supabase.rpc('metricas_resumo', { dias, p_ws: workspaceId ?? undefined }).then(({ data: d, error: err }) => {
       if (!active) return
       if (err) setError(err.message)
       else {
@@ -33,7 +35,7 @@ export function useMetrics(dias: number) {
     return () => {
       active = false
     }
-  }, [dias])
+  }, [dias, workspaceId])
 
   return { data, error }
 }
