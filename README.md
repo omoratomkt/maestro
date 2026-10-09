@@ -41,6 +41,7 @@ Cada chamada à IA grava tokens e custo em `custos_uso` (alimenta "custo por lea
 | `admin-users` | JWT de super_admin | Lista, convida (email), troca o papel e remove usuários de um workspace. |
 | `webhook-calcom` | `?ws=` + assinatura HMAC | Reflete agendamentos do Cal.com no lead e no pipeline (criado, remarcado, cancelado). |
 | `webhook-lead` | `?ws=&token=` | Fonte "inbound": formulários e automações (Zapier/Make) criam prospects. |
+| `health-check` | `x-cron-secret` | Vigia: responde 503 se o agent-loop parou, falha em série ou há envios travados. O workflow `watchdog` o chama a cada 30 min e o GitHub avisa por email quando falha. |
 | `webhook-whatsapp` / `-email` / `-linkedin` / `-instagram` | `?ws=<workspace>&token=<webhook_secret>` | Recebem respostas dos canais. |
 
 Funções com JWT usam o RLS do próprio usuário como autorização antes de agir com `service_role`.
@@ -71,6 +72,14 @@ O agente só propõe canais com integração ativa **e** envio possível naquele
 
 A cota semanal da campanha (`volume_semanal`) vale para todas as fontes somadas.
 
+## Vários clientes (workspaces)
+
+Cada cliente é um workspace e o painel mostra um de cada vez: quem tem acesso a mais de um (super_admin vê todos) troca pelo seletor no topo da barra lateral. Campanhas, pipeline, fila, caixa de entrada, automações, métricas e dashboard filtram pelo workspace ativo. As chaves estrangeiras compostas (migration 017) impedem que uma linha de um workspace aponte para dados de outro.
+
+## Direitos do titular (LGPD)
+
+Em Pipeline → prospect: **Baixar dados (JSON)** e **Excluir prospect** (apaga mensagens, estado, ações e lead; por padrão adiciona o contato à lista de supressão para ele não voltar). Pedidos de "pare de me contatar" recebidos por mensagem entram sozinhos na lista.
+
 ## Operação
 
 1. **Segredos** (nunca no repositório): credenciais ficam em `integracoes` (Setup → Integrações); o `CRON_SECRET` fica
@@ -79,7 +88,10 @@ A cota semanal da campanha (`volume_semanal`) vale para todas as fontes somadas.
 3. **Migrations:** `supabase/migrations/` em ordem numérica; `supabase/sql/apply_all.sql` reúne todas.
 4. **Deploy das funções:** `supabase functions deploy <nome> --project-ref <ref> --use-api` (`--no-verify-jwt` para
    `agent-loop` e `webhook-*`).
-5. **Testes:** `deno test --allow-env --config supabase/functions/deno.json supabase/functions/_shared/` (horário comercial, contrato da API do Claude, contratos de Google Places, Apollo e Apify).
+5. **Testes e verificações:**
+   - `npm test` (Vitest: CSV, lista de supressão, wizard, catálogo de integrações) e `npm run check:api` (as consultas do app com junções ainda são aceitas pela API; roda no CI).
+   - **Isolamento entre clientes (RLS):** `SUPABASE_ACCESS_TOKEN=... node scripts/teste-isolamento-rls.mjs` (50 verificações, numa transação com ROLLBACK). Rode depois de **toda** migration.
+   - Funções: `deno test --allow-env --config supabase/functions/deno.json supabase/functions/_shared/` (horário comercial, contrato da API do Claude, contratos de Google Places, Apollo e Apify).
    Convites e recuperação de senha dependem de **Authentication → URL Configuration** no Supabase: Site URL = URL do app e a mesma URL (`/definir-senha`) na lista de Redirect URLs.
 6. **Dados de demonstração:** `supabase/sql/demo_seed.sql` / `demo_cleanup.sql`. Prospects com `fonte = 'demo'` nunca são
    enriquecidos nem contatados, e aprovar uma ação deles **simula** o envio.

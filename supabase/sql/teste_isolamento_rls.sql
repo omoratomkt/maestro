@@ -1,3 +1,4 @@
+-- Rode com: SUPABASE_ACCESS_TOKEN=... node scripts/teste-isolamento-rls.mjs (o SQL Editor só mostraria o resultado do ROLLBACK).
 -- Teste de isolamento (RLS) entre workspaces, executado dentro de uma transação que termina em ROLLBACK:
 -- nenhum usuário, workspace ou dado criado aqui permanece no banco.
 BEGIN;
