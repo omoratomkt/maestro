@@ -1,6 +1,7 @@
 import { format } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
 import { toast } from 'sonner'
+import { ProspectActions } from '@/components/pipeline/ProspectActions'
 import { ConversationThread } from '@/components/inbox/ConversationThread'
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from '@/components/ui/sheet'
 import { useProspectDetail, type Prospect } from '@/hooks/useProspects'
@@ -10,6 +11,8 @@ interface Props {
   prospect: Prospect | null
   onClose: () => void
   onStatus: (id: string, status: string) => Promise<void>
+  /** Chamado depois de excluir o prospect (fecha o painel e recarrega a lista). */
+  onDeleted: () => void
 }
 
 function Info({ label, value }: { label: string; value: string | number | null | undefined }) {
@@ -22,7 +25,7 @@ function Info({ label, value }: { label: string; value: string | number | null |
   )
 }
 
-export function ProspectDrawer({ prospect: p, onClose, onStatus }: Props) {
+export function ProspectDrawer({ prospect: p, onClose, onStatus, onDeleted }: Props) {
   const { interacoes, estado, lead, setStatusReuniao, loading } = useProspectDetail(p?.id ?? null)
   const b = (lead?.briefing ?? {}) as Record<string, unknown>
   const lista = (v: unknown) => (Array.isArray(v) ? v.map(String).join(' · ') : null)
@@ -116,6 +119,8 @@ export function ProspectDrawer({ prospect: p, onClose, onStatus }: Props) {
                 <h3 className="font-semibold">Histórico cross-canal</h3>
                 {loading ? <p className="text-muted-foreground">Carregando…</p> : <ConversationThread interacoes={interacoes} />}
               </section>
+
+              <ProspectActions prospect={p} onDeleted={onDeleted} />
             </div>
           </>
         ) : null}

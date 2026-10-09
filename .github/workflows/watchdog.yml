@@ -1,0 +1,21 @@
+name: watchdog
+
+# Vigia o sistema a cada 30 minutos. Se o agent-loop parou, está falhando em série ou há envios travados,
+# este workflow FALHA e o GitHub avisa por email o dono do repositório.
+on:
+  schedule:
+    - cron: '*/30 * * * *'
+  workflow_dispatch:
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    steps:
+      - name: Chamar health-check
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          CRON_SECRET: ${{ secrets.CRON_SECRET }}
+        run: |
+          curl --fail-with-body -sS --max-time 60 "$SUPABASE_URL/functions/v1/health-check" \
+            -H "x-cron-secret: $CRON_SECRET"

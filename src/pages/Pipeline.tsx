@@ -12,7 +12,7 @@ import { useProspects, type Prospect } from '@/hooks/useProspects'
 import { toast } from 'sonner'
 
 export default function Pipeline() {
-  const { prospects, loading, error, truncated, loadMore, setStatus, importMany } = useProspects()
+  const { prospects, loading, error, truncated, loadMore, setStatus, importMany, reload } = useProspects()
   const { campanhas } = useCampaigns()
   const [view, setView] = useState<'kanban' | 'lista'>('kanban')
   const [selectedId, setSelectedId] = useState<string | null>(null)
@@ -68,7 +68,15 @@ export default function Pipeline() {
         <PipelineList prospects={prospects} onOpen={(p) => setSelectedId(p.id)} />
       )}
 
-      <ProspectDrawer prospect={selected} onClose={() => setSelectedId(null)} onStatus={move} />
+      <ProspectDrawer
+        prospect={selected}
+        onClose={() => setSelectedId(null)}
+        onStatus={move}
+        onDeleted={() => {
+          setSelectedId(null)
+          void reload()
+        }}
+      />
       {importing ? <CsvImportDialog campanhas={campanhas} onClose={() => setImporting(false)} onImport={importMany} /> : null}
     </PageShell>
   )

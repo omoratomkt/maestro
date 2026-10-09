@@ -1,0 +1,20 @@
+{
+  "normalizar": [
+    { "tipo": "email", "entrada": "  Ana@Empresa.COM ", "saida": "ana@empresa.com" },
+    { "tipo": "dominio", "entrada": "https://www.Empresa.com.br/contato", "saida": "empresa.com.br" },
+    { "tipo": "dominio", "entrada": "empresa.com.br", "saida": "empresa.com.br" },
+    { "tipo": "whatsapp", "entrada": "(11) 91234-5678", "saida": "5511912345678" },
+    { "tipo": "whatsapp", "entrada": "+55 11 91234-5678", "saida": "5511912345678" },
+    { "tipo": "whatsapp", "entrada": "1134567890", "saida": "551134567890" },
+    { "tipo": "linkedin", "entrada": "https://www.linkedin.com/in/Ana-Souza/", "saida": "ana-souza" },
+    { "tipo": "linkedin", "entrada": "Ana-Souza", "saida": "ana-souza" },
+    { "tipo": "instagram", "entrada": "@Clinica_X", "saida": "clinica_x" }
+  ],
+  "chaves": [
+    { "contato": { "email": "A@B.com", "website": "www.c.com" }, "chaves": ["dominio:b.com", "dominio:c.com", "email:a@b.com"] },
+    { "contato": { "whatsapp": "+55 11 9 1234-5678" }, "chaves": ["whatsapp:12345678"] },
+    { "contato": { "whatsapp": "(11) 1234-5678" }, "chaves": ["whatsapp:12345678"] },
+    { "contato": { "linkedin_url": "https://linkedin.com/in/joao-lima/", "instagram_handle": "@Clinica_X" }, "chaves": ["instagram:clinica_x", "linkedin:joao-lima"] },
+    { "contato": {}, "chaves": [] }
+  ]
+}

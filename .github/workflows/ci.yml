@@ -18,6 +18,7 @@ jobs:
       - run: npm ci
       - run: npx tsc -b
       - run: npm run lint
+      - run: npm test
       - run: npm run build
         env:
           VITE_SUPABASE_URL: https://example.supabase.co
@@ -38,3 +39,17 @@ jobs:
           done
       - name: Testes
         run: deno test --allow-env --config supabase/functions/deno.json supabase/functions/_shared/
+
+  # Confere se as consultas do app (com junções embutidas) ainda são aceitas pela API do banco em produção.
+  # Pega o tipo de falha que uma migration de chaves estrangeiras já causou (junção ambígua, HTTP 300).
+  api-contracts:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: node scripts/check-api-contracts.mjs
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}

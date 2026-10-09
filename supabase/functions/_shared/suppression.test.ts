@@ -1,5 +1,6 @@
 import { assertEquals } from 'jsr:@std/assert@1'
 import { chavesDe, estaSuprimido, normalizar } from './suppression.ts'
+import fixtures from './suppression.fixtures.json' with { type: 'json' }
 
 Deno.test('normalizar por tipo', () => {
   assertEquals(normalizar('email', '  Ana@Empresa.COM '), 'ana@empresa.com')
@@ -26,4 +27,9 @@ Deno.test('estaSuprimido: email, domínio, whatsapp (com/sem DDI e 9º dígito),
 
 Deno.test('chavesDe: domínio entra pelo email e pelo site', () => {
   assertEquals(chavesDe({ email: 'a@b.com', website: 'www.c.com' }).sort(), ['dominio:b.com', 'dominio:c.com', 'email:a@b.com'].sort())
+})
+
+Deno.test('fixtures compartilhadas com o frontend (normalização e chaves idênticas nas duas pontas)', () => {
+  for (const f of fixtures.normalizar) assertEquals(normalizar(f.tipo, f.entrada), f.saida, f.entrada)
+  for (const c of fixtures.chaves) assertEquals(chavesDe(c.contato).sort(), [...c.chaves].sort())
 })
