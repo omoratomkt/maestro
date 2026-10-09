@@ -3,14 +3,17 @@ import { assert, assertEquals, assertRejects } from 'jsr:@std/assert@1'
 import { askClaude } from './anthropic.ts'
 
 /** Banco de mentira: só o que askClaude usa (integracoes.maybeSingle e custos_uso.insert). */
-function fakeSb() {
+function fakeSb(opts: { gastoHoje?: number; limite?: number } = {}) {
   const custos: any[] = []
   const sb: any = {
     from(table: string) {
       const q: any = {
         select: () => q,
         eq: () => q,
-        maybeSingle: () => Promise.resolve({ data: table === 'integracoes' ? { ativo: true, config: { api_key: 'sk-test' } } : null, error: null }),
+        gte: () => q,
+        limit: () => Promise.resolve({ data: table === 'custos_uso' ? [{ custo_usd: opts.gastoHoje ?? 0 }] : null, error: null }),
+        maybeSingle: () =>
+          Promise.resolve({ data: table === 'integracoes' ? { ativo: true, config: { api_key: 'sk-test', ...(opts.limite ? { limite_diario_usd: opts.limite } : {}) } } : null, error: null }),
         insert: (row: any) => {
           custos.push(row)
           return Promise.resolve({ error: null })
@@ -98,5 +101,19 @@ Deno.test('askClaude: erros de contrato viram exceção clara', async () => {
     } finally {
       f.restore()
     }
+  }
+})
+
+Deno.test('askClaude: respeita o teto diário de IA (padrão US$ 10) sem chamar a API', async () => {
+  const f = stubFetch(message('{"x":"a"}'))
+  try {
+    await assertRejects(() => askClaude(fakeSb({ gastoHoje: 10.5 }).sb, { workspace_id: 'ws', origem: 'agent', tier: 'sonnet', system: 's', user: 'u', schema }), Error, 'Limite diário de IA')
+    assertEquals(f.calls.length, 0)
+    // com teto configurado maior, passa
+    const ok = await askClaude<{ x: string }>(fakeSb({ gastoHoje: 10.5, limite: 20 }).sb, { workspace_id: 'ws', origem: 'agent', tier: 'sonnet', system: 's', user: 'u', schema })
+    assertEquals(ok, { x: 'a' })
+    assertEquals(f.calls.length, 1)
+  } finally {
+    f.restore()
   }
 })

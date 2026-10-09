@@ -7,6 +7,7 @@
 //     "mensagem": "o que a pessoa escreveu", "canal": "email|whatsapp|linkedin|instagram", "campanha_id": "opcional" }
 // A campanha é: campanha_id do corpo → campaign_id da integração → a única campanha ativa que tem "inbound" nas fontes.
 import { handleInbound, authWebhook } from '../_shared/inbound.ts'
+import { carregarSupressoes, estaSuprimido } from '../_shared/suppression.ts'
 import { corsHeaders, digits, errMessage, json, normalizePhone, readJson, serviceClient, type SB } from '../_shared/util.ts'
 
 async function escolherCampanha(sb: SB, ws: string, config: Record<string, string>, pedida?: string): Promise<string | null> {
@@ -32,6 +33,7 @@ Deno.serve(async (req) => {
   const whatsapp = normalizePhone(b.whatsapp ?? b.telefone)
   const nomeEmpresa = String(b.nome_empresa ?? b.empresa ?? b.nome_contato ?? b.nome ?? '').trim()
   if (!email && !whatsapp) return json({ error: 'Informe email ou whatsapp' }, 400)
+  if (estaSuprimido(await carregarSupressoes(sb, auth.workspace_id), { email, whatsapp, website: b.website })) return json({ ok: true, suprimido: true })
 
   try {
     const campanha_id = await escolherCampanha(sb, auth.workspace_id, auth.config, b.campanha_id)

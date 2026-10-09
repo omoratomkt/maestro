@@ -11,9 +11,13 @@
 // POST { followup?: boolean, limit?: number }  ·  Auth: header x-cron-secret (ou service_role).
 import { proposeNextAction } from '../_shared/agent.ts'
 import { enrichProspect } from '../_shared/enrich.ts'
-import { executeAction } from '../_shared/execute.ts'
+import { ERRO_LIMITE, executeAction } from '../_shared/execute.ts'
 import { runSources } from '../_shared/sources.ts'
 import { corsHeaders, errMessage, isCronAuthorized, json, readJson, serviceClient } from '../_shared/util.ts'
+
+const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms))
+// Intervalo aleatório entre WhatsApps seguidos: rajadas idênticas são o que derruba contas de API não oficial.
+const jitter = (canal?: string) => (canal === 'whatsapp' ? sleep(2000 + Math.random() * 4000) : Promise.resolve())
 
 const TIME_BUDGET_MS = 110_000 // o limite da Edge Function é 150 s
 const SILENCIO_FOLLOWUP_H = 48
@@ -89,11 +93,18 @@ Deno.serve(async (req) => {
   }
 
   // 3) Enviar aprovadas pendentes de envio (sem erro anterior; reenvios são manuais)
-  const { data: aprovadas } = await sb.from('fila_acoes').select('id').eq('status', 'aprovada').is('executada_em', null).is('erro_execucao', null).limit(20)
+  const { data: aprovadas } = await sb
+    .from('fila_acoes')
+    .select('id')
+    .eq('status', 'aprovada')
+    .is('executada_em', null)
+    .or(`erro_execucao.is.null,erro_execucao.like.${ERRO_LIMITE}*`)
+    .limit(20)
   for (const a of aprovadas ?? []) {
     if (!timeLeft()) break
     const r = await executeAction(sb, a.id)
     report.enviadas.push({ fila_id: a.id, ok: r.ok, detalhe: r.detalhe })
+    if (r.ok) await jitter(r.canal)
   }
 
   // 4) Decisões do agente
@@ -132,6 +143,7 @@ Deno.serve(async (req) => {
       if (o.resultado === 'automatica') {
         const r = await executeAction(sb, o.fila_id)
         report.enviadas.push({ fila_id: o.fila_id, ok: r.ok, detalhe: r.detalhe })
+        if (r.ok) await jitter(r.canal)
       }
       // Nada decidido a seguir (ignorado): sem este reset o claim acima seguraria o prospect por 30 min à toa.
       if (o.resultado === 'ignorado') {
@@ -146,5 +158,26 @@ Deno.serve(async (req) => {
   }
 
   report.duracao_ms = Date.now() - started
+
+  // Histórico da rodada (tela Setup → visão geral). Nunca derruba a resposta se falhar.
+  await sb
+    .from('ciclo_log')
+    .insert({
+      followup,
+      duracao_ms: report.duracao_ms,
+      erros: report.erros.length,
+      resumo: {
+        expiradas: report.expiradas,
+        buscas: report.buscas.length,
+        inseridos: report.buscas.reduce((n: number, b: any) => n + (b.inseridos ?? 0), 0),
+        enriquecidos: report.enriquecidos.length,
+        enviadas: report.enviadas.filter((e: any) => e.ok).length,
+        decisoes: report.decisoes.length,
+        erros: report.erros.slice(0, 20),
+      },
+    })
+    .then(() => {}, () => {})
+  await sb.from('ciclo_log').delete().lt('executado_em', new Date(Date.now() - 30 * 24 * 3600e3).toISOString()).then(() => {}, () => {})
+
   return json(report)
 })

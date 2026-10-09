@@ -6,6 +6,7 @@ import {
   LayoutDashboard,
   Megaphone,
   Plug,
+  ShieldBan,
   ShieldCheck,
   Sparkles,
   LogOut,
@@ -52,6 +53,7 @@ const setupNav: NavItem[] = [
   { to: '/setup/workspaces', label: 'Workspaces', icon: Building2 },
   { to: '/setup/playbooks', label: 'Playbooks', icon: Workflow },
   { to: '/setup/integracoes', label: 'Integrações', icon: Plug },
+  { to: '/setup/supressoes', label: 'Lista de supressão', icon: ShieldBan },
 ]
 
 export function Sidebar() {

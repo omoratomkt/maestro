@@ -5,6 +5,7 @@
 // Fora desta função: csv (importação no Pipeline) e inbound (webhook-lead).
 // Não implementada: cnpj (a Receita não oferece busca por atividade+cidade; precisa de um provedor de dados escolhido).
 import { getCredentials } from './credentials.ts'
+import { carregarSupressoes, estaSuprimido } from './suppression.ts'
 import { errMessage, type SB } from './util.ts'
 
 export interface Candidate {
@@ -286,8 +287,11 @@ async function runFonte(sb: SB, camp: any, fonte: string, orcamento: number): Pr
   const log = (consulta: string, novos: number, total: number, erro?: string) =>
     sb.from('source_log').insert({ workspace_id: ws, campanha_id: camp.id, fonte, consulta, novos, total, erro: erro ?? null })
 
+  const supressos = await carregarSupressoes(sb, ws)
   const gravar = async (cands: Candidate[], limite: number) => {
-    const novos = await novosCandidatos(sb, ws, fonte, cands)
+    const novos = (await novosCandidatos(sb, ws, fonte, cands)).filter(
+      (c) => !estaSuprimido(supressos, { email: c.email, linkedin_url: c.linkedin_url, instagram_handle: c.instagram_handle, website: c.website }),
+    )
     const rows = novos.slice(0, limite).map((c) => ({
       workspace_id: ws,
       campanha_id: camp.id,

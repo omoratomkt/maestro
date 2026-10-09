@@ -101,6 +101,33 @@ export type Database = {
           },
         ]
       }
+      ciclo_log: {
+        Row: {
+          duracao_ms: number
+          erros: number
+          executado_em: string
+          followup: boolean
+          id: string
+          resumo: Json
+        }
+        Insert: {
+          duracao_ms?: number
+          erros?: number
+          executado_em?: string
+          followup?: boolean
+          id?: string
+          resumo?: Json
+        }
+        Update: {
+          duracao_ms?: number
+          erros?: number
+          executado_em?: string
+          followup?: boolean
+          id?: string
+          resumo?: Json
+        }
+        Relationships: []
+      }
       custos_uso: {
         Row: {
           criado_em: string
@@ -702,6 +729,44 @@ export type Database = {
           },
           {
             foreignKeyName: "source_log_workspace_id_fkey"
+            columns: ["workspace_id"]
+            isOneToOne: false
+            referencedRelation: "workspaces"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      supressoes: {
+        Row: {
+          criado_em: string
+          id: string
+          motivo: string | null
+          origem: string
+          tipo: string
+          valor: string
+          workspace_id: string
+        }
+        Insert: {
+          criado_em?: string
+          id?: string
+          motivo?: string | null
+          origem?: string
+          tipo: string
+          valor: string
+          workspace_id: string
+        }
+        Update: {
+          criado_em?: string
+          id?: string
+          motivo?: string | null
+          origem?: string
+          tipo?: string
+          valor?: string
+          workspace_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "supressoes_workspace_id_fkey"
             columns: ["workspace_id"]
             isOneToOne: false
             referencedRelation: "workspaces"

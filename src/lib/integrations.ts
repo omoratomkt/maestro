@@ -25,6 +25,13 @@ export interface IntegrationDef {
 }
 
 const apiKey: IntegrationField = { key: 'api_key', label: 'API key', secret: true }
+const limiteDiario: IntegrationField = {
+  key: 'limite_diario',
+  label: 'Limite diário de envios',
+  optional: true,
+  placeholder: 'padrão do canal',
+  hint: 'Mensagens por dia neste canal (padrões: WhatsApp 100, email 150, Instagram 100). Passou do limite, o envio espera o dia seguinte.',
+}
 const webhookSecret: IntegrationField = {
   key: 'webhook_secret',
   label: 'Segredo do webhook',
@@ -44,6 +51,7 @@ export const INTEGRATIONS: IntegrationDef[] = [
       apiKey,
       { key: 'instance', label: 'Nome da instância' },
       webhookSecret,
+      limiteDiario,
     ],
   },
   {
@@ -58,6 +66,7 @@ export const INTEGRATIONS: IntegrationDef[] = [
       { key: 'verify_token', label: 'Verify token do webhook', secret: true },
       webhookSecret,
       { key: 'app_secret', label: 'App secret (valida a assinatura)', secret: true, optional: true },
+      limiteDiario,
     ],
   },
   {
@@ -71,6 +80,7 @@ export const INTEGRATIONS: IntegrationDef[] = [
       { key: 'campaign_id', label: 'ID da campanha no Instantly', hint: 'Campanha com o corpo do email = {{personalization}}.' },
       { key: 'eaccount', label: 'Conta de envio (email)', optional: true },
       webhookSecret,
+      limiteDiario,
     ],
   },
   { tipo: 'email_mailreach', label: 'Email (Mailreach)', group: 'Canais de saída', fields: [apiKey], note: 'Ainda sem envio implementado.' },
@@ -101,6 +111,7 @@ export const INTEGRATIONS: IntegrationDef[] = [
       { key: 'instagram_account_id', label: 'Instagram account ID' },
       { key: 'verify_token', label: 'Verify token do webhook', secret: true },
       webhookSecret,
+      limiteDiario,
     ],
   },
   { tipo: 'google_places', label: 'Google Places', group: 'Fontes de dados', fields: [apiKey] },
@@ -131,7 +142,7 @@ export const INTEGRATIONS: IntegrationDef[] = [
     note: 'Envie um POST JSON (nome_empresa, nome_contato, email, whatsapp, mensagem...) para a URL abaixo. A campanha é a única ativa com a fonte "inbound", ou a que você indicar.',
     fields: [{ key: 'campaign_id', label: 'ID da campanha de destino', optional: true }, webhookSecret],
   },
-  { tipo: 'anthropic', label: 'Anthropic (Claude)', group: 'IA', fields: [apiKey], note: 'Usada pelo agente (Sonnet), triagem e qualificação (Haiku).' },
+  { tipo: 'anthropic', label: 'Anthropic (Claude)', group: 'IA', fields: [apiKey], note: 'Usada pelo agente (Sonnet), triagem e qualificação (Haiku). Há um teto diário de gasto (padrão US$ 10): ao atingi-lo o agente pausa até o dia seguinte.' },
   {
     tipo: 'morato_crm',
     label: 'morato-crm',

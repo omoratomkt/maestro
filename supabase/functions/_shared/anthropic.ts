@@ -1,6 +1,7 @@
 // deno-lint-ignore-file no-explicit-any
 import Anthropic from 'npm:@anthropic-ai/sdk@0.132.1'
 import { getCredentials } from './credentials.ts'
+import { gastoIaHoje, LIMITE_PADRAO_IA_USD } from './limites.ts'
 import type { SB } from './util.ts'
 
 // Haiku: triagem e classificação. Sonnet: conversação e briefing (decisão do projeto).
@@ -29,7 +30,10 @@ interface AskParams {
  * Não define temperature/top_p (rejeitados pelo Sonnet 5.5) nem desliga o thinking.
  */
 export async function askClaude<T>(sb: SB, p: AskParams): Promise<T> {
-  const { api_key } = await getCredentials(sb, p.workspace_id, 'anthropic')
+  const { api_key, limite_diario_usd } = await getCredentials(sb, p.workspace_id, 'anthropic')
+  const teto = Number(limite_diario_usd) > 0 ? Number(limite_diario_usd) : LIMITE_PADRAO_IA_USD
+  const gasto = await gastoIaHoje(sb, p.workspace_id)
+  if (gasto >= teto) throw new Error(`Limite diário de IA atingido (US$ ${gasto.toFixed(2)} de US$ ${teto.toFixed(2)}). Ajuste em Integrações → Anthropic.`)
   const client = new Anthropic({ apiKey: api_key })
 
   const outputConfig: Record<string, unknown> = { format: { type: 'json_schema', schema: p.schema } }

@@ -3,6 +3,7 @@
 import { askClaude } from './anthropic.ts'
 import { proposeNextAction, upsertEstado } from './agent.ts'
 import { qualifyProspect } from './qualify.ts'
+import { suprimir } from './suppression.ts'
 import { digits, errMessage, timingSafeEqual, type SB } from './util.ts'
 
 export interface InboundMessage {
@@ -26,14 +27,14 @@ export interface InboundResult {
   erro?: string
 }
 
-type Intencao = 'interesse' | 'duvida' | 'objecao' | 'recusa' | 'pedido_humano' | 'agendamento' | 'resposta_automatica' | 'fora_de_contexto'
+type Intencao = 'interesse' | 'duvida' | 'objecao' | 'recusa' | 'opt_out' | 'pedido_humano' | 'agendamento' | 'resposta_automatica' | 'fora_de_contexto'
 
 const triageSchema = {
   type: 'object',
   additionalProperties: false,
   required: ['intencao', 'resumo'],
   properties: {
-    intencao: { type: 'string', enum: ['interesse', 'duvida', 'objecao', 'recusa', 'pedido_humano', 'agendamento', 'resposta_automatica', 'fora_de_contexto'] },
+    intencao: { type: 'string', enum: ['interesse', 'duvida', 'objecao', 'recusa', 'opt_out', 'pedido_humano', 'agendamento', 'resposta_automatica', 'fora_de_contexto'] },
     resumo: { type: 'string' },
   },
 }
@@ -100,13 +101,23 @@ export async function handleInbound(sb: SB, m: InboundMessage): Promise<InboundR
       prospect_id: p.id,
       origem: 'triage',
       tier: 'haiku',
-      system: 'Classifique a intenção de uma resposta a uma abordagem comercial outbound. "resposta_automatica" = ausência/auto-reply/bot. "recusa" = não tem interesse ou pede para não receber mais mensagens. "pedido_humano" = quer ligação, reunião, proposta formal ou falar com uma pessoa.',
+      system: 'Classifique a intenção de uma resposta a uma abordagem comercial outbound. "resposta_automatica" = ausência/auto-reply/bot. "recusa" = não tem interesse agora. "opt_out" = pede explicitamente para não receber mais mensagens, ser removido da lista, parar de contatar ou diz que vai denunciar/processar. "pedido_humano" = quer ligação, reunião, proposta formal ou falar com uma pessoa.',
       user: JSON.stringify({ mensagem: m.texto, canal: m.canal }),
       schema: triageSchema,
       maxTokens: 300,
     })
     result.triagem = t.intencao
     await sb.from('prospect_interacoes').update({ metadata: { ...(m.metadata ?? {}), message_id: m.message_id, triagem: t } }).eq('id', row.id)
+
+    if (t.intencao === 'opt_out') {
+      // LGPD: pediu para parar. Entra na lista de supressão do workspace e nada mais é proposto para esta pessoa.
+      await suprimir(sb, p.workspace_id, p, 'Pediu para não receber mais mensagens', 'resposta')
+      await sb.from('prospects').update({ status: 'descartado', atualizado_em: new Date().toISOString() }).eq('id', p.id)
+      await sb.from('fila_acoes').update({ status: 'cancelada' }).eq('prospect_id', p.id).in('status', ['pendente', 'aprovada'])
+      await upsertEstado(sb, p.id, { aguardando: 'nenhum', proxima_acao_em: null, contexto_resumo: 'Pediu para não ser contatado: está na lista de supressão.' })
+      result.proximo = 'suprimido'
+      return result
+    }
 
     if (t.intencao === 'resposta_automatica') {
       // Auto-reply não é resposta humana: volta a esperar sem acionar o agente.

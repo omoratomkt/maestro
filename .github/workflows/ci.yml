@@ -1,0 +1,40 @@
+name: ci
+
+# Em todo push e pull request: tipos, lint e build do frontend; type-check e testes das Edge Functions.
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  frontend:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npx tsc -b
+      - run: npm run lint
+      - run: npm run build
+        env:
+          VITE_SUPABASE_URL: https://example.supabase.co
+          VITE_SUPABASE_ANON_KEY: ci-placeholder
+
+  functions:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: denoland/setup-deno@v2
+        with:
+          deno-version: v2.x
+      - name: Type-check de cada Edge Function
+        run: |
+          for f in supabase/functions/*/index.ts; do
+            echo "== $f"
+            deno check --config supabase/functions/deno.json "$f"
+          done
+      - name: Testes
+        run: deno test --allow-env --config supabase/functions/deno.json supabase/functions/_shared/

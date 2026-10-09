@@ -5,6 +5,8 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } f
 import type { Campanha } from '@/hooks/useCampaigns'
 import { useAuth } from '@/lib/auth'
 import { parseCsv } from '@/lib/csv'
+import { supabase } from '@/lib/supabase'
+import { chaveDaLinha, chavesDoContato } from '@/lib/suppression'
 import type { TablesInsert } from '@/types/database'
 
 const COLUMNS = [
@@ -35,12 +37,14 @@ export function CsvImportDialog({ campanhas, onClose, onImport }: Props) {
   const [campanhaId, setCampanhaId] = useState(campanhas[0]?.id ?? '')
   const [rows, setRows] = useState<TablesInsert<'prospects'>[]>([])
   const [skipped, setSkipped] = useState(0)
+  const [suprimidos, setSuprimidos] = useState(0)
   const [fileError, setFileError] = useState<string | null>(null)
   const [saving, setSaving] = useState(false)
 
   async function onFile(file: File | undefined) {
     setRows([])
     setSkipped(0)
+    setSuprimidos(0)
     setFileError(null)
     if (!file || !workspaceId || !campanhaId) return
     const table = parseCsv(await file.text())
@@ -77,7 +81,12 @@ export function CsvImportDialog({ campanhas, onClose, onImport }: Props) {
         fonte: 'csv',
       })
     }
-    setRows(out)
+    // Quem está na lista de supressão não entra.
+    const { data: lista } = await supabase.from('supressoes').select('tipo, valor').eq('workspace_id', workspaceId).limit(10000)
+    const bloqueados = new Set((lista ?? []).map((s) => chaveDaLinha(s.tipo, s.valor)))
+    const liberados = out.filter((r) => !chavesDoContato(r).some((k) => bloqueados.has(k)))
+    setRows(liberados)
+    setSuprimidos(out.length - liberados.length)
     setSkipped(skip)
   }
 
@@ -129,7 +138,7 @@ export function CsvImportDialog({ campanhas, onClose, onImport }: Props) {
           {fileError ? <p className="text-destructive">{fileError}</p> : null}
           {rows.length > 0 ? (
             <p className="text-muted-foreground">
-              {rows.length} prospects prontos para importar{skipped ? ` (${skipped} linhas sem nome_empresa ignoradas)` : ''}.
+              {rows.length} prospects prontos para importar{skipped ? ` (${skipped} linhas sem nome_empresa ignoradas)` : ''}{suprimidos ? ` (${suprimidos} na lista de supressão, não importados)` : ''}.
             </p>
           ) : null}
         </div>

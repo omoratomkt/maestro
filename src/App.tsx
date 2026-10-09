@@ -15,6 +15,7 @@ import Queue from '@/pages/Queue'
 import Integrations from '@/pages/setup/Integrations'
 import Playbooks from '@/pages/setup/Playbooks'
 import SetupDashboard from '@/pages/setup/SetupDashboard'
+import Suppressions from '@/pages/setup/Suppressions'
 import Workspaces from '@/pages/setup/Workspaces'
 
 export default function App() {
@@ -38,6 +39,7 @@ export default function App() {
                 <Route path="setup/workspaces" element={<Workspaces />} />
                 <Route path="setup/playbooks" element={<Playbooks />} />
                 <Route path="setup/integracoes" element={<Integrations />} />
+                <Route path="setup/supressoes" element={<Suppressions />} />
               </Route>
             </Route>
           </Route>

@@ -3,6 +3,7 @@
 import { askClaude } from './anthropic.ts'
 import { availableChannels, type Canal } from './channels.ts'
 import { getCredentials } from './credentials.ts'
+import { carregarSupressoes, estaSuprimido } from './suppression.ts'
 import { firstName, nextBusinessSlot, type SB } from './util.ts'
 
 export type ProposeOutcome =
@@ -117,6 +118,12 @@ export async function proposeNextAction(sb: SB, prospect_id: string, opts: { fol
 
   const { data: c } = await sb.from('campanhas').select('*').eq('id', p.campanha_id).maybeSingle()
   if (!c || c.status !== 'ativa') return { resultado: 'ignorado', motivo: 'campanha não está ativa' }
+
+  if (estaSuprimido(await carregarSupressoes(sb, p.workspace_id), p)) {
+    await sb.from('prospects').update({ status: 'descartado', atualizado_em: new Date().toISOString() }).eq('id', p.id)
+    await upsertEstado(sb, p.id, { aguardando: 'nenhum', proxima_acao_em: null })
+    return { resultado: 'ignorado', motivo: 'contato na lista de supressão' }
+  }
 
   const { data: abertas } = await sb.from('fila_acoes').select('id').eq('prospect_id', p.id).in('status', ['pendente', 'aprovada']).limit(1)
   if (abertas?.length) return { resultado: 'ignorado', motivo: 'já existe ação aguardando aprovação ou envio' }
