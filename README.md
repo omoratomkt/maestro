@@ -37,7 +37,10 @@ Cada chamada à IA grava tokens e custo em `custos_uso` (alimenta "custo por lea
 | `prospect-enrich` | JWT do usuário (RLS) | Enriquece e pontua um prospect. |
 | `prospect-qualify` | JWT do usuário (RLS) | Verifica os critérios obrigatórios da campanha. |
 | `generate-briefing` | JWT do usuário (RLS) | Briefing do lead + aviso ao CRM. |
-| `source-search` | JWT do usuário (RLS) | Busca prospects (hoje: Google Places). |
+| `source-search` | JWT do usuário (RLS) | Busca prospects nas fontes da campanha (Google Places, Apollo, Instagram e LinkedIn via Apify). Roda ao lançar a campanha, no botão "Buscar agora" e 1x por dia pelo `agent-loop`. |
+| `admin-users` | JWT de super_admin | Lista, convida (email), troca o papel e remove usuários de um workspace. |
+| `webhook-calcom` | `?ws=` + assinatura HMAC | Reflete agendamentos do Cal.com no lead e no pipeline (criado, remarcado, cancelado). |
+| `webhook-lead` | `?ws=&token=` | Fonte "inbound": formulários e automações (Zapier/Make) criam prospects. |
 | `webhook-whatsapp` / `-email` / `-linkedin` / `-instagram` | `?ws=<workspace>&token=<webhook_secret>` | Recebem respostas dos canais. |
 
 Funções com JWT usam o RLS do próprio usuário como autorização antes de agir com `service_role`.
@@ -50,9 +53,23 @@ Funções com JWT usam o RLS do próprio usuário como autorização antes de ag
 | WhatsApp — Meta Cloud API | sim (texto; fora de 24h exige template) | sim |
 | Email — Instantly | 1º email via lead na campanha (corpo `{{personalization}}`); respostas via `/emails/reply` | sim (`reply_received`) |
 | LinkedIn (Expandi/Dripify) | **não**: sem envio avulso por API | sim (formato genérico) |
-| Instagram DM | **não**: a Meta só permite responder a quem já escreveu | parcial |
+| Instagram DM | só **responder** a quem escreveu (IGSID, janela de 24 h) | sim (o @ é resolvido pela Graph API) |
 
-O agente só propõe canais com integração ativa **e** envio implementado.
+O agente só propõe canais com integração ativa **e** envio possível naquele momento.
+
+## Fontes de prospects
+
+| Fonte | Situação |
+|---|---|
+| Google Places | busca por segmento × cidade; "Brasil" rotaciona pelas 27 capitais; consultas não se repetem por 7 dias (`source_log`) |
+| Apollo | busca grátis + `people/match` (1 crédito por pessoa aproveitada, até 15 por rodada); cada rodada avança uma página |
+| Instagram (Apify) | ator `apify/instagram-scraper` por padrão; ator e entrada configuráveis |
+| LinkedIn (Apify) | ator e entrada **definidos por você** na integração; o scraping viola os Termos do LinkedIn |
+| CSV | importação em Pipeline → Importar CSV |
+| Inbound | `webhook-lead` |
+| CNPJ (Receita) | **não implementada**: a Receita não busca por atividade e cidade; falta escolher um provedor |
+
+A cota semanal da campanha (`volume_semanal`) vale para todas as fontes somadas.
 
 ## Operação
 
@@ -62,7 +79,8 @@ O agente só propõe canais com integração ativa **e** envio implementado.
 3. **Migrations:** `supabase/migrations/` em ordem numérica; `supabase/sql/apply_all.sql` reúne todas.
 4. **Deploy das funções:** `supabase functions deploy <nome> --project-ref <ref> --use-api` (`--no-verify-jwt` para
    `agent-loop` e `webhook-*`).
-5. **Testes:** `deno test --allow-env --config supabase/functions/deno.json supabase/functions/_shared/`.
+5. **Testes:** `deno test --allow-env --config supabase/functions/deno.json supabase/functions/_shared/` (horário comercial, contrato da API do Claude, contratos de Google Places, Apollo e Apify).
+   Convites e recuperação de senha dependem de **Authentication → URL Configuration** no Supabase: Site URL = URL do app e a mesma URL (`/definir-senha`) na lista de Redirect URLs.
 6. **Dados de demonstração:** `supabase/sql/demo_seed.sql` / `demo_cleanup.sql`. Prospects com `fonte = 'demo'` nunca são
    enriquecidos nem contatados, e aprovar uma ação deles **simula** o envio.
 7. **Tipos do banco:** `npm run types` (requer `SUPABASE_ACCESS_TOKEN`).
