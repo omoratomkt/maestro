@@ -126,11 +126,15 @@ export function draftToInsert(
   }
 }
 
+/** Texto entre colchetes (ex.: "[Seu nome]") é marcador dos playbooks: precisa ser trocado antes de lançar. */
+const TEM_MARCADOR = /\[[^\]]+\]/
+
 /** Validação por passo (índice 0–4). Retorna mensagem de erro ou null. */
 export function validateStep(step: number, d: CampaignDraft): string | null {
   if (step === 1) {
     if (!d.nome.trim()) return 'Dê um nome à campanha.'
     if (!d.segmento.trim()) return 'Informe o segmento alvo.'
+    if (TEM_MARCADOR.test(d.segmento)) return 'O segmento ainda tem texto entre colchetes: substitua pela descrição do seu público.'
     if (d.score_minimo < 0 || d.score_minimo > 100) return 'O score mínimo deve estar entre 0 e 100.'
   }
   if (step === 2) {
@@ -139,6 +143,8 @@ export function validateStep(step: number, d: CampaignDraft): string | null {
   }
   if (step === 3) {
     if (!d.persona_nome.trim() || !d.persona_produto.trim()) return 'Informe o nome da persona e o produto/serviço oferecido.'
+    if (TEM_MARCADOR.test(d.persona_nome) || TEM_MARCADOR.test(d.persona_produto) || d.persona_argumentos.some((a) => TEM_MARCADOR.test(a)))
+      return 'Ainda há texto entre colchetes na persona (nome, produto ou argumentos): preencha com os seus dados.'
   }
   return null
 }

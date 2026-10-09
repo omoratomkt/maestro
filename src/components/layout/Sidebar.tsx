@@ -1,6 +1,7 @@
 import {
   BarChart3,
   Building2,
+  HelpCircle,
   Inbox,
   KanbanSquare,
   LayoutDashboard,
@@ -46,6 +47,7 @@ const operationalNav: NavItem[] = [
   { to: '/campanhas', label: 'Campanhas', icon: Megaphone },
   { to: '/automacoes', label: 'Automações', icon: Zap },
   { to: '/metricas', label: 'Métricas', icon: BarChart3 },
+  { to: '/ajuda', label: 'Ajuda', icon: HelpCircle },
 ]
 
 const setupNav: NavItem[] = [

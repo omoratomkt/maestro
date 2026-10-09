@@ -6,6 +6,7 @@ import { AuthProvider } from '@/lib/auth'
 import Automations from '@/pages/Automations'
 import Campaigns from '@/pages/Campaigns'
 import Dashboard from '@/pages/Dashboard'
+import Help from '@/pages/Help'
 import Inbox from '@/pages/Inbox'
 import Login from '@/pages/Login'
 import SetPassword from '@/pages/SetPassword'
@@ -34,6 +35,7 @@ export default function App() {
               <Route path="campanhas" element={<Campaigns />} />
               <Route path="automacoes" element={<Automations />} />
               <Route path="metricas" element={<Metrics />} />
+              <Route path="ajuda" element={<Help />} />
               <Route element={<RequireSuperAdmin />}>
                 <Route path="setup" element={<SetupDashboard />} />
                 <Route path="setup/workspaces" element={<Workspaces />} />

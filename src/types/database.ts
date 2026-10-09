@@ -14,6 +14,60 @@ export type Database = {
   }
   public: {
     Tables: {
+      campanha_metricas: {
+        Row: {
+          campanha_id: string
+          custo_usd: number
+          dia: string
+          funil: Json
+          id: string
+          mensagens_enviadas: number
+          prospects_total: number
+          qualificados: number
+          respostas: number
+          workspace_id: string
+        }
+        Insert: {
+          campanha_id: string
+          custo_usd?: number
+          dia: string
+          funil?: Json
+          id?: string
+          mensagens_enviadas?: number
+          prospects_total?: number
+          qualificados?: number
+          respostas?: number
+          workspace_id: string
+        }
+        Update: {
+          campanha_id?: string
+          custo_usd?: number
+          dia?: string
+          funil?: Json
+          id?: string
+          mensagens_enviadas?: number
+          prospects_total?: number
+          qualificados?: number
+          respostas?: number
+          workspace_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "campanha_metricas_campanha_id_workspace_id_fkey"
+            columns: ["campanha_id", "workspace_id"]
+            isOneToOne: false
+            referencedRelation: "campanhas"
+            referencedColumns: ["id", "workspace_id"]
+          },
+          {
+            foreignKeyName: "campanha_metricas_workspace_id_fkey"
+            columns: ["workspace_id"]
+            isOneToOne: false
+            referencedRelation: "workspaces"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       campanhas: {
         Row: {
           atualizado_em: string
@@ -472,6 +526,38 @@ export type Database = {
           },
         ]
       }
+      notificacoes_log: {
+        Row: {
+          chave: string
+          enviado_em: string
+          id: string
+          tipo: string
+          workspace_id: string
+        }
+        Insert: {
+          chave: string
+          enviado_em?: string
+          id?: string
+          tipo: string
+          workspace_id: string
+        }
+        Update: {
+          chave?: string
+          enviado_em?: string
+          id?: string
+          tipo?: string
+          workspace_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "notificacoes_log_workspace_id_fkey"
+            columns: ["workspace_id"]
+            isOneToOne: false
+            referencedRelation: "workspaces"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       playbooks: {
         Row: {
           ativo: boolean
@@ -513,6 +599,51 @@ export type Database = {
           persona_padrao?: Json | null
         }
         Relationships: []
+      }
+      prospect_alerts: {
+        Row: {
+          criado_em: string
+          detalhe: Json
+          id: string
+          lido: boolean
+          prospect_id: string
+          tipo: string
+          workspace_id: string
+        }
+        Insert: {
+          criado_em?: string
+          detalhe?: Json
+          id?: string
+          lido?: boolean
+          prospect_id: string
+          tipo: string
+          workspace_id: string
+        }
+        Update: {
+          criado_em?: string
+          detalhe?: Json
+          id?: string
+          lido?: boolean
+          prospect_id?: string
+          tipo?: string
+          workspace_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "prospect_alerts_prospect_id_workspace_id_fkey"
+            columns: ["prospect_id", "workspace_id"]
+            isOneToOne: false
+            referencedRelation: "prospects"
+            referencedColumns: ["id", "workspace_id"]
+          },
+          {
+            foreignKeyName: "prospect_alerts_workspace_id_fkey"
+            columns: ["workspace_id"]
+            isOneToOne: false
+            referencedRelation: "workspaces"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       prospect_estado: {
         Row: {
@@ -885,7 +1016,15 @@ export type Database = {
     Functions: {
       get_workspace_ids_for_user: { Args: never; Returns: string[] }
       is_super_admin: { Args: never; Returns: boolean }
-      metricas_resumo: { Args: { dias?: number; p_ws?: string }; Returns: Json }
+      metricas_por_campanha: {
+        Args: { dias?: number; p_ws?: string }
+        Returns: Json
+      }
+      metricas_resumo: {
+        Args: { dias?: number; p_camp?: string; p_ws?: string }
+        Returns: Json
+      }
+      registrar_snapshot_metricas: { Args: never; Returns: number }
     }
     Enums: {
       [_ in never]: never

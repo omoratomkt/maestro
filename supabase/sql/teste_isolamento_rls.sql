@@ -105,6 +105,10 @@ BEGIN
   SELECT count(*) INTO n FROM prospects;          r := r || jsonb_build_object('quem','operador B','teste','vê só o próprio prospect','esperado','1','obtido',n::text,'ok',n = 1);
   SELECT count(*) INTO n FROM prospects WHERE id = PA; r := r || jsonb_build_object('quem','operador B','teste','não enxerga o prospect de A','esperado','0','obtido',n::text,'ok',n = 0);
   SELECT count(*) INTO n FROM campanhas WHERE id = CA; r := r || jsonb_build_object('quem','operador B','teste','não enxerga a campanha de A','esperado','0','obtido',n::text,'ok',n = 0);
+  falhou := false; n := 0; BEGIN SELECT count(*) INTO n FROM notificacoes_log; EXCEPTION WHEN insufficient_privilege THEN falhou := true; END;
+  r := r || jsonb_build_object('quem','operador B','teste','não lê notificacoes_log (só as funções)','esperado','0 linhas','obtido',CASE WHEN falhou THEN 'sem permissão' ELSE n::text END,'ok',(falhou OR n = 0));
+  SELECT count(*) INTO n FROM prospect_alerts WHERE workspace_id = WA; r := r || jsonb_build_object('quem','operador B','teste','não vê alertas de A','esperado','0','obtido',n::text,'ok',n = 0);
+  SELECT count(*) INTO n FROM campanha_metricas WHERE workspace_id = WA; r := r || jsonb_build_object('quem','operador B','teste','não vê métricas de A','esperado','0','obtido',n::text,'ok',n = 0);
 
   ------------------------------------------------------------------ super_admin
   EXECUTE 'RESET ROLE'; EXECUTE 'SET LOCAL ROLE authenticated';
@@ -117,7 +121,7 @@ BEGIN
   ------------------------------------------------------------------ anônimo (chave anon, sem login)
   EXECUTE 'RESET ROLE'; EXECUTE 'SET LOCAL ROLE anon';
   PERFORM set_config('request.jwt.claims', '{"role":"anon"}', true);
-  FOREACH t IN ARRAY ARRAY['workspaces','workspace_usuarios','playbooks','campanhas','prospects','prospect_interacoes','prospect_estado','fila_acoes','fluxos_automaticos','leads_qualificados','integracoes','custos_uso','supressoes','source_log','ciclo_log'] LOOP
+  FOREACH t IN ARRAY ARRAY['workspaces','workspace_usuarios','playbooks','campanhas','prospects','prospect_interacoes','prospect_estado','fila_acoes','fluxos_automaticos','leads_qualificados','integracoes','custos_uso','supressoes','source_log','ciclo_log','prospect_alerts','campanha_metricas','notificacoes_log'] LOOP
     falhou := false; n := 0;
     BEGIN EXECUTE format('SELECT count(*) FROM %I', t) INTO n; EXCEPTION WHEN insufficient_privilege THEN falhou := true; END;
     r := r || jsonb_build_object('quem','anônimo','teste','não lê '||t,'esperado','0 linhas','obtido',CASE WHEN falhou THEN 'sem permissão' ELSE n::text END,'ok',(falhou OR n = 0));

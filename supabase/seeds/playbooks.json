@@ -1,0 +1,195 @@
+[
+  {
+    "nome": "Negócios locais sem presença digital",
+    "descricao": "Para quem vende presença digital (sites, páginas, anúncios locais, agências de marketing e web): negócios locais encontrados no Google com pouca ou nenhuma presença online. Primeiro contato por WhatsApp. Preencha o que está entre colchetes ao criar a campanha.",
+    "icp": {
+      "segmento": "Negócios locais com pouca ou nenhuma presença digital (sem site, site desatualizado ou perfil do Google incompleto)",
+      "cargos_alvo": ["Proprietário", "Dono", "Sócio", "Gerente"],
+      "regioes": ["Brasil"],
+      "score_minimo": 50,
+      "volume_semanal": 40,
+      "criterios_exclusao": ["Franquias e redes com marketing centralizado", "Negócios fechados ou sem nenhuma avaliação no Google"]
+    },
+    "persona": {
+      "nome": "[Seu nome]",
+      "tom": "amigavel",
+      "produto": "[Descreva o serviço de presença digital que você vende]",
+      "argumentos": [
+        "Quem procura no Google precisa te encontrar e chamar no WhatsApp com um toque",
+        "Uma presença simples e bem feita costuma trazer pedidos de orçamento sem depender só de indicação",
+        "Sem termos técnicos: o foco é mais clientes entrando em contato"
+      ],
+      "objecoes": [
+        { "objecao": "Já tenho Instagram, não preciso de site", "resposta": "O Instagram é ótimo para mostrar o trabalho, mas quem pesquisa no Google não encontra você por lá. Uma página simples complementa o perfil e leva a pessoa direto para o seu WhatsApp." },
+        { "objecao": "Não tenho dinheiro para isso agora", "resposta": "Entendo. Dá para começar pequeno, só com o essencial. Posso te mostrar uma opção enxuta e você decide se faz sentido agora ou mais para frente." },
+        { "objecao": "Já tentei e não deu resultado", "resposta": "Isso é comum quando o site não é pensado para gerar contato. Posso entender o que foi feito antes e dizer com sinceridade se o problema tem solução." }
+      ]
+    },
+    "criterios": [
+      { "campo": "e_decisor", "pergunta": "Confirmar que a pessoa é dona ou decide sobre divulgação e investimento no negócio", "obrigatorio": true },
+      { "campo": "dor_principal", "pergunta": "Entender como os clientes encontram o negócio hoje e o que falta para receber mais contatos", "obrigatorio": true },
+      { "campo": "budget", "pergunta": "Saber a faixa de investimento que o negócio consideraria para melhorar a presença online", "obrigatorio": false },
+      { "campo": "timeline", "pergunta": "Saber se há urgência (inauguração, alta temporada, queda de movimento)", "obrigatorio": false }
+    ]
+  },
+  {
+    "nome": "Decisores B2B — serviços",
+    "descricao": "Para consultorias e prestadores de serviços B2B que vendem a outras empresas: decisores de empresas de serviços de 10 a 200 funcionários, encontrados pelo Apollo. O envio automático hoje é por email; o LinkedIn só recebe respostas. Preencha o que está entre colchetes ao criar a campanha.",
+    "icp": {
+      "segmento": "Empresas B2B de serviços com 10 a 200 funcionários",
+      "cargos_alvo": ["Sócio-diretor", "CEO", "Diretor", "Diretor Comercial", "Head de Operações"],
+      "regioes": ["Brasil"],
+      "score_minimo": 60,
+      "volume_semanal": 30,
+      "criterios_exclusao": ["Empresas com menos de 10 funcionários", "Concorrentes diretos", "Órgãos públicos"]
+    },
+    "persona": {
+      "nome": "[Seu nome]",
+      "tom": "consultivo",
+      "produto": "[Descreva o serviço B2B que você vende]",
+      "argumentos": [
+        "Ganho mensurável de eficiência ou receita, com o resultado esperado definido antes de começar",
+        "Projeto sob medida para a operação da empresa, não um pacote genérico",
+        "Uma conversa curta de diagnóstico para validar se existe aderência antes de qualquer proposta"
+      ],
+      "objecoes": [
+        { "objecao": "Já temos um fornecedor para isso", "resposta": "Faz sentido. Muitas vezes o trabalho complementa o que já existe. Podemos comparar o que o fornecedor atual entrega com o que você gostaria de ter, sem trocar nada agora." },
+        { "objecao": "Estou sem tempo agora", "resposta": "Sem problema. Uma conversa de 20 minutos já basta para saber se vale aprofundar. Qual semana fica melhor?" },
+        { "objecao": "Preciso alinhar com a diretoria ou os sócios", "resposta": "Claro. Posso preparar um resumo curto para você levar à conversa interna e depois marcamos com todos, se fizer sentido." }
+      ]
+    },
+    "criterios": [
+      { "campo": "e_decisor", "pergunta": "Confirmar se a pessoa decide sozinha ou com quem decide a contratação", "obrigatorio": true },
+      { "campo": "dor_principal", "pergunta": "Identificar o principal gargalo ou meta que motiva a conversa", "obrigatorio": true },
+      { "campo": "budget", "pergunta": "Confirmar a faixa de investimento prevista para o tema", "obrigatorio": true },
+      { "campo": "timeline", "pergunta": "Confirmar o prazo desejado para começar", "obrigatorio": false }
+    ]
+  },
+  {
+    "nome": "E-commerce em crescimento",
+    "descricao": "Para ferramentas, serviços de logística e consultorias voltados a lojas virtuais: e-commerces com operação própria e vendas recorrentes. Primeiro contato por email, com WhatsApp quando houver número validado. Preencha o que está entre colchetes ao criar a campanha.",
+    "icp": {
+      "segmento": "Lojas virtuais em crescimento, com operação própria e vendas recorrentes",
+      "cargos_alvo": ["Fundador", "CEO", "Head de E-commerce", "Gerente de Operações", "Diretor de Marketing"],
+      "regioes": ["Brasil"],
+      "score_minimo": 55,
+      "volume_semanal": 30,
+      "criterios_exclusao": ["Marketplaces e grandes redes de varejo", "Lojas fora do ar ou sem atividade recente"]
+    },
+    "persona": {
+      "nome": "[Seu nome]",
+      "tom": "direto",
+      "produto": "[Descreva a ferramenta ou o serviço que você vende para lojas virtuais]",
+      "argumentos": [
+        "Menos trabalho manual em pedidos, atendimento e logística à medida que o volume cresce",
+        "Mais controle do que está sendo vendido e entregue, sem depender de planilhas",
+        "Implantação planejada para não parar a operação da loja"
+      ],
+      "objecoes": [
+        { "objecao": "Já usamos uma plataforma para isso", "resposta": "Ótimo, então vocês já sentem o valor. Posso entender o que ela não resolve hoje? Se não houver ganho claro, eu mesmo digo que não vale a troca." },
+        { "objecao": "A margem está apertada", "resposta": "Por isso a conversa é sobre onde o trabalho manual ou o erro está custando dinheiro. Se não houver um ganho maior que o custo, não faz sentido seguir." },
+        { "objecao": "Não é prioridade agora", "resposta": "Entendo. Qual é a prioridade do momento? Se fizer sentido, retomo quando ela estiver resolvida." }
+      ]
+    },
+    "criterios": [
+      { "campo": "e_decisor", "pergunta": "Confirmar que a pessoa decide ou influencia diretamente a contratação", "obrigatorio": true },
+      { "campo": "dor_principal", "pergunta": "Entender onde o crescimento está gerando gargalo (pedidos, estoque, atendimento, entrega)", "obrigatorio": true },
+      { "campo": "budget", "pergunta": "Saber a faixa de investimento prevista para resolver o gargalo", "obrigatorio": false },
+      { "campo": "timeline", "pergunta": "Saber em quanto tempo precisa resolver (por exemplo, antes de uma data de pico de vendas)", "obrigatorio": false }
+    ]
+  },
+  {
+    "nome": "Prestadores de serviço locais",
+    "descricao": "Para consultores generalistas e quem atende pequenos negócios: clínicas, escritórios, oficinas e estúdios locais, encontrados no Google Places (a busca por CNPJ ainda não está implementada). Primeiro contato por WhatsApp. Preencha o que está entre colchetes ao criar a campanha.",
+    "icp": {
+      "segmento": "Prestadores de serviço locais com 1 a 20 pessoas (clínicas, escritórios, oficinas, estúdios)",
+      "cargos_alvo": ["Proprietário", "Sócio", "Dono"],
+      "regioes": ["Brasil"],
+      "score_minimo": 55,
+      "volume_semanal": 40,
+      "criterios_exclusao": ["Redes e franquias", "Profissionais autônomos sem estabelecimento"]
+    },
+    "persona": {
+      "nome": "[Seu nome]",
+      "tom": "consultivo",
+      "produto": "[Descreva a consultoria ou o serviço que você oferece a pequenos negócios]",
+      "argumentos": [
+        "Organizar a rotina e os processos para o dono ter mais tempo e menos improviso",
+        "Automatizar tarefas repetitivas, como agenda, cobrança e retorno de clientes",
+        "Melhorias pequenas e aplicáveis já, sem projeto longo nem ferramenta complicada"
+      ],
+      "objecoes": [
+        { "objecao": "Meu negócio é pequeno, isso não é para mim", "resposta": "Em negócio pequeno o dono faz de tudo, e é onde o tempo mais pesa. Podemos começar por uma coisa só: a que mais te consome." },
+        { "objecao": "Já tenho um sistema ou uma secretária para isso", "resposta": "Ótimo. Então o foco não é trocar o que funciona, e sim ver se sobra alguma tarefa repetitiva que ainda toma o seu tempo." },
+        { "objecao": "Estou sem tempo para isso agora", "resposta": "Entendo, é justamente o problema que a gente resolve. Posso te chamar em outro horário, em uma conversa de 15 minutos." }
+      ]
+    },
+    "criterios": [
+      { "campo": "e_decisor", "pergunta": "Confirmar que a pessoa é dona ou decide sobre contratações e melhorias", "obrigatorio": true },
+      { "campo": "dor_principal", "pergunta": "Identificar a tarefa ou o processo que mais consome tempo ou gera retrabalho", "obrigatorio": true },
+      { "campo": "budget", "pergunta": "Saber a faixa de investimento que o negócio consideraria", "obrigatorio": false },
+      { "campo": "timeline", "pergunta": "Saber se existe urgência para resolver", "obrigatorio": false }
+    ]
+  },
+  {
+    "nome": "Criadores e infoprodutores",
+    "descricao": "Para ferramentas e serviços voltados a criadores de conteúdo e infoprodutores, encontrados no Instagram. Atenção: a Meta não permite a primeira mensagem por Instagram. O contato inicial acontece por WhatsApp (se houver número validado) ou por email, e o Instagram só responde a quem escreveu. Preencha o que está entre colchetes ao criar a campanha.",
+    "icp": {
+      "segmento": "Criadores de conteúdo e infoprodutores com audiência e produto próprio (curso, mentoria, comunidade)",
+      "cargos_alvo": ["Criador", "Fundador", "Produtor de infoproduto", "Mentor"],
+      "regioes": ["Brasil"],
+      "score_minimo": 50,
+      "volume_semanal": 30,
+      "criterios_exclusao": ["Perfis sem produto ou serviço próprio", "Contas inativas há mais de 3 meses"]
+    },
+    "persona": {
+      "nome": "[Seu nome]",
+      "tom": "amigavel",
+      "produto": "[Descreva a ferramenta ou o serviço que você vende para criadores]",
+      "argumentos": [
+        "Mais tempo para criar e menos tempo em tarefas operacionais",
+        "Vendas, atendimento e entrega do produto organizados em um só lugar",
+        "Crescer a audiência e converter melhor sem aumentar a equipe"
+      ],
+      "objecoes": [
+        { "objecao": "Faço tudo sozinho e dá certo", "resposta": "Funciona enquanto o volume é pequeno. A ideia é justamente não travar quando a audiência crescer. Posso mostrar só a parte que mais te toma tempo." },
+        { "objecao": "Não tenho verba para ferramentas agora", "resposta": "Entendo. Dá para começar pelo essencial e crescer junto com o faturamento. Posso te mostrar o que traz retorno mais rápido." },
+        { "objecao": "Já testei ferramentas parecidas e larguei", "resposta": "Acontece muito quando a ferramenta pede mais trabalho do que poupa. Me conta o que não funcionou e eu digo com franqueza se aqui seria diferente." }
+      ]
+    },
+    "criterios": [
+      { "campo": "e_decisor", "pergunta": "Confirmar que a pessoa decide sobre as ferramentas e os gastos do negócio", "obrigatorio": true },
+      { "campo": "dor_principal", "pergunta": "Entender o que mais atrapalha hoje: vendas, atendimento, entrega ou produção de conteúdo", "obrigatorio": true },
+      { "campo": "budget", "pergunta": "Saber a faixa de investimento mensal que faria sentido", "obrigatorio": false },
+      { "campo": "timeline", "pergunta": "Saber se há um lançamento ou data importante próxima", "obrigatorio": false }
+    ]
+  },
+  {
+    "nome": "Lista fria",
+    "descricao": "Para listas próprias importadas por CSV, de qualquer segmento. O ICP e a persona precisam ser ajustados para a lista em questão. Contato por email, com WhatsApp quando houver número. Preencha o que está entre colchetes ao criar a campanha.",
+    "icp": {
+      "segmento": "[Defina o segmento ou o perfil desta lista]",
+      "cargos_alvo": [],
+      "regioes": ["Brasil"],
+      "score_minimo": 40,
+      "volume_semanal": 100,
+      "criterios_exclusao": ["Contatos sem email nem WhatsApp válido", "Clientes atuais"]
+    },
+    "persona": {
+      "nome": "[Seu nome]",
+      "tom": "consultivo",
+      "produto": "[Descreva o que você vende]",
+      "argumentos": ["[Principal benefício para o público desta lista]"],
+      "objecoes": [
+        { "objecao": "Já tenho um fornecedor para isso", "resposta": "Faz sentido. Se quiser, comparo o que você tem hoje com o que eu ofereço, sem compromisso de trocar nada." },
+        { "objecao": "Não é o momento", "resposta": "Sem problema. Posso retomar mais para frente, em uma data que seja melhor para você?" }
+      ]
+    },
+    "criterios": [
+      { "campo": "e_decisor", "pergunta": "Confirmar que a pessoa decide ou influencia a contratação", "obrigatorio": true },
+      { "campo": "dor_principal", "pergunta": "Identificar o principal problema ou meta que motiva a conversa", "obrigatorio": true },
+      { "campo": "budget", "pergunta": "Saber a faixa de investimento prevista", "obrigatorio": false },
+      { "campo": "timeline", "pergunta": "Saber o prazo desejado", "obrigatorio": false }
+    ]
+  }
+]

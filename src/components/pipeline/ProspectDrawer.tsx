@@ -1,6 +1,7 @@
 import { format } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
 import { toast } from 'sonner'
+import { EnrichmentPanel } from '@/components/pipeline/EnrichmentPanel'
 import { ProspectActions } from '@/components/pipeline/ProspectActions'
 import { ConversationThread } from '@/components/inbox/ConversationThread'
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from '@/components/ui/sheet'
@@ -13,6 +14,8 @@ interface Props {
   onStatus: (id: string, status: string) => Promise<void>
   /** Chamado depois de excluir o prospect (fecha o painel e recarrega a lista). */
   onDeleted: () => void
+  /** Chamado quando os dados do prospect mudam por fora do arrastar-e-soltar (ex.: reenriquecer). */
+  onChanged: () => void
 }
 
 function Info({ label, value }: { label: string; value: string | number | null | undefined }) {
@@ -25,7 +28,7 @@ function Info({ label, value }: { label: string; value: string | number | null |
   )
 }
 
-export function ProspectDrawer({ prospect: p, onClose, onStatus, onDeleted }: Props) {
+export function ProspectDrawer({ prospect: p, onClose, onStatus, onDeleted, onChanged }: Props) {
   const { interacoes, estado, lead, setStatusReuniao, loading } = useProspectDetail(p?.id ?? null)
   const b = (lead?.briefing ?? {}) as Record<string, unknown>
   const lista = (v: unknown) => (Array.isArray(v) ? v.map(String).join(' · ') : null)
@@ -105,6 +108,8 @@ export function ProspectDrawer({ prospect: p, onClose, onStatus, onDeleted }: Pr
                   {lead.reuniao_em ? <p className="text-muted-foreground">Marcada para {fmt(lead.reuniao_em)}</p> : null}
                 </section>
               ) : null}
+
+              <EnrichmentPanel prospect={p} onChanged={onChanged} />
 
               {estado ? (
                 <section className="space-y-1 rounded-lg border p-3">

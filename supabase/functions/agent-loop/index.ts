@@ -12,6 +12,7 @@
 import { proposeNextAction } from '../_shared/agent.ts'
 import { enrichProspect } from '../_shared/enrich.ts'
 import { ERRO_LIMITE, executeAction } from '../_shared/execute.ts'
+import { enviarResumosDiarios, snapshotMetricas } from '../_shared/rotinas.ts'
 import { runSources } from '../_shared/sources.ts'
 import { corsHeaders, errMessage, isCronAuthorized, json, readJson, serviceClient } from '../_shared/util.ts'
 
@@ -66,6 +67,10 @@ Deno.serve(async (req) => {
       report.erros.push({ etapa: 'buscar', campanha_id: c.id, erro: errMessage(e) })
     }
   }
+
+  // 1c) Rotinas periódicas: resumo diário por email e foto horária das métricas
+  report.resumos = await enviarResumosDiarios(sb).catch((e) => ({ erro: errMessage(e) }))
+  report.snapshot = await snapshotMetricas(sb).catch((e) => `erro: ${errMessage(e)}`)
 
   // 2) Enriquecer novos (campanhas ativas)
   const idsAtivas = (ativas ?? []).map((c: any) => c.id)

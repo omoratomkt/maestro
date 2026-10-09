@@ -15,7 +15,7 @@ export interface IntegrationField {
 export interface IntegrationDef {
   tipo: string
   label: string
-  group: 'Canais de saída' | 'Fontes de dados' | 'IA' | 'CRM' | 'Calendário'
+  group: 'Canais de saída' | 'Fontes de dados' | 'IA' | 'CRM' | 'Calendário' | 'Notificações'
   fields: IntegrationField[]
   /** Edge Function que recebe as respostas deste canal (precisa do campo webhook_secret). */
   webhook?: string
@@ -158,6 +158,18 @@ export const INTEGRATIONS: IntegrationDef[] = [
     note: 'Recebe um POST quando um lead é qualificado (cabeçalho X-Maestro-Secret).',
   },
   {
+    tipo: 'notificacoes_email',
+    label: 'Avisos por email (Resend)',
+    group: 'Notificações',
+    note: 'O Maestro avisa por email quando um lead é qualificado, uma reunião é marcada ou cancelada, alguém pede atendimento humano, e manda um resumo diário (dias úteis, a partir das 9h) do que precisa de você. Use a mesma conta do Resend do SMTP do Auth.',
+    fields: [
+      { key: 'api_key', label: 'API key do Resend', secret: true },
+      { key: 'remetente', label: 'Remetente', placeholder: 'Maestro <contato@seudominio.com>', hint: 'Precisa ser de um domínio verificado no Resend.' },
+      { key: 'destinatarios', label: 'Quem recebe os avisos', placeholder: 'voce@empresa.com, colega@empresa.com', hint: 'Emails separados por vírgula.' },
+      { key: 'app_url', label: 'Endereço do Maestro (opcional)', optional: true, placeholder: 'https://maestro-tau-rouge.vercel.app' },
+    ],
+  },
+  {
     tipo: 'calcom',
     label: 'Cal.com',
     group: 'Calendário',
@@ -171,7 +183,7 @@ export const INTEGRATIONS: IntegrationDef[] = [
   },
 ]
 
-export const INTEGRATION_GROUPS = ['Canais de saída', 'Fontes de dados', 'IA', 'CRM', 'Calendário'] as const
+export const INTEGRATION_GROUPS = ['Canais de saída', 'Fontes de dados', 'IA', 'CRM', 'Calendário', 'Notificações'] as const
 
 /** Mostra só o final de um segredo (nunca o valor completo). */
 export function maskSecret(value: unknown): string {

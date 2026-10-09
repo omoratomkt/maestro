@@ -4,9 +4,11 @@ import { PageShell } from '@/components/layout/PageShell'
 import { MetricCard } from '@/components/metrics/MetricCard'
 import { PipelineFunnelChart } from '@/components/metrics/PipelineFunnelChart'
 import { ResponseRateChart } from '@/components/metrics/ResponseRateChart'
+import { EvolutionChart } from '@/components/metrics/EvolutionChart'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Skeleton } from '@/components/ui/skeleton'
-import { useMetrics } from '@/hooks/useMetrics'
+import { useCampaigns } from '@/hooks/useCampaigns'
+import { useCampaignComparison, useHistory, useMetrics } from '@/hooks/useMetrics'
 
 const PERIODOS = [7, 30, 90]
 
@@ -17,7 +19,11 @@ function formatHours(h: number | null) {
 
 export default function Metrics() {
   const [dias, setDias] = useState(30)
-  const { data, error } = useMetrics(dias)
+  const [campanhaId, setCampanhaId] = useState<string | null>(null)
+  const { campanhas } = useCampaigns()
+  const { data, error } = useMetrics(dias, campanhaId)
+  const comparativo = useCampaignComparison(dias)
+  const historico = useHistory(dias, campanhaId)
 
   const taxaQualificacao =
     data && data.prospects_processados > 0 ? `${((data.qualificados / data.prospects_processados) * 100).toFixed(1)}%` : '—'
@@ -36,6 +42,20 @@ export default function Metrics() {
             {p} dias
           </button>
         ))}
+        <span className="ml-4 font-medium">Campanha</span>
+        <select
+          aria-label="Filtrar por campanha"
+          className="h-8 rounded-lg border bg-background px-2 text-sm"
+          value={campanhaId ?? ''}
+          onChange={(e) => setCampanhaId(e.target.value || null)}
+        >
+          <option value="">Todas</option>
+          {campanhas.map((c) => (
+            <option key={c.id} value={c.id}>
+              {c.nome}
+            </option>
+          ))}
+        </select>
       </div>
 
       {error ? <p className="text-sm text-destructive">Erro ao carregar métricas: {error}</p> : null}
@@ -80,6 +100,51 @@ export default function Metrics() {
               </CardContent>
             </Card>
           </div>
+
+          <Card>
+            <CardHeader>
+              <CardTitle>Evolução (acumulado por dia)</CardTitle>
+            </CardHeader>
+            <CardContent>{historico ? <EvolutionChart data={historico} /> : <Skeleton className="h-40" />}</CardContent>
+          </Card>
+
+          {comparativo && comparativo.length > 0 ? (
+            <Card>
+              <CardHeader>
+                <CardTitle>Campanhas lado a lado</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="overflow-x-auto rounded-lg border">
+                  <table className="w-full text-xs">
+                    <thead className="bg-muted/50 text-left">
+                      <tr>
+                        <th className="px-3 py-2 font-medium">Campanha</th>
+                        <th className="px-3 py-2 font-medium">Prospects</th>
+                        <th className="px-3 py-2 font-medium">Contatados</th>
+                        <th className="px-3 py-2 font-medium">Responderam</th>
+                        <th className="px-3 py-2 font-medium">Taxa de resposta</th>
+                        <th className="px-3 py-2 font-medium">Qualificados</th>
+                        <th className="px-3 py-2 font-medium">Custo de IA</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {comparativo.map((c) => (
+                        <tr key={c.campanha_id} className="border-t">
+                          <td className="px-3 py-2 font-medium">{c.nome}</td>
+                          <td className="px-3 py-2">{c.prospects_total}</td>
+                          <td className="px-3 py-2">{c.contatados}</td>
+                          <td className="px-3 py-2">{c.responderam}</td>
+                          <td className="px-3 py-2">{c.contatados > 0 ? `${Math.round((c.responderam / c.contatados) * 100)}%` : '—'}</td>
+                          <td className="px-3 py-2">{c.qualificados}</td>
+                          <td className="px-3 py-2">US$ {Number(c.custo_usd).toFixed(2)}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </CardContent>
+            </Card>
+          ) : null}
         </div>
       ) : null}
     </PageShell>

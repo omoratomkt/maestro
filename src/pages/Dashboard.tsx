@@ -1,4 +1,4 @@
-import { Flame, MessageSquareReply, Send, ShieldCheck, Target, UserPlus } from 'lucide-react'
+import { Flame, MessageSquareReply, Radar, Send, ShieldCheck, Target, UserPlus } from 'lucide-react'
 import { Link } from 'react-router-dom'
 import { PageShell } from '@/components/layout/PageShell'
 import { MetricCard } from '@/components/metrics/MetricCard'
@@ -6,10 +6,12 @@ import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Skeleton } from '@/components/ui/skeleton'
+import { descreverAlerta, TIPOS_ALERTA, useAlertas } from '@/hooks/useAlertas'
 import { useDashboard } from '@/hooks/useDashboard'
 
 export default function Dashboard() {
   const { data, error } = useDashboard()
+  const { alertas, marcarVisto, marcarTodos } = useAlertas()
 
   return (
     <PageShell title="Dashboard" description="Métricas do dia, fila pendente e leads quentes">
@@ -72,6 +74,38 @@ export default function Dashboard() {
               )}
             </CardContent>
           </Card>
+
+          {alertas.length > 0 ? (
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center justify-between gap-2">
+                  <span className="flex items-center gap-2">
+                    <Radar className="size-4" /> Sinais de timing
+                  </span>
+                  <Button size="sm" variant="ghost" onClick={marcarTodos}>
+                    Marcar todos como vistos
+                  </Button>
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <ul className="divide-y">
+                  {alertas.map((a) => (
+                    <li key={a.id} className="flex items-center justify-between gap-3 py-2.5 text-sm">
+                      <div className="min-w-0">
+                        <p className="truncate font-medium">
+                          {a.prospects?.nome_empresa ?? 'Prospect removido'} <Badge variant="secondary">{TIPOS_ALERTA[a.tipo] ?? a.tipo}</Badge>
+                        </p>
+                        <p className="truncate text-xs text-muted-foreground">{descreverAlerta(a)}</p>
+                      </div>
+                      <Button size="sm" variant="outline" onClick={() => marcarVisto(a.id)}>
+                        Visto
+                      </Button>
+                    </li>
+                  ))}
+                </ul>
+              </CardContent>
+            </Card>
+          ) : null}
         </div>
       ) : null}
     </PageShell>

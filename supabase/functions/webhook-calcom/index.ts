@@ -6,6 +6,7 @@
 // Segredo: o mesmo `webhook_secret` da integração calcom, informado no campo "Secret" do webhook (assinatura HMAC SHA-256 em x-cal-signature-256).
 // O prospect é identificado pelo email do participante.
 import { generateBriefing } from '../_shared/briefing.ts'
+import { notificar } from '../_shared/notify.ts'
 import { corsHeaders, errMessage, json, serviceClient, timingSafeEqual, type SB } from '../_shared/util.ts'
 import { upsertEstado } from '../_shared/agent.ts'
 
@@ -14,6 +15,8 @@ async function hmac(secret: string, payload: string): Promise<{ hex: string; b64
   const sig = new Uint8Array(await crypto.subtle.sign('HMAC', key, new TextEncoder().encode(payload)))
   return { hex: [...sig].map((b) => b.toString(16).padStart(2, '0')).join(''), b64: btoa(String.fromCharCode(...sig)) }
 }
+
+const quando = (iso: string) => new Intl.DateTimeFormat('pt-BR', { dateStyle: 'full', timeStyle: 'short', timeZone: 'America/Sao_Paulo' }).format(new Date(iso)) + ' (Brasília)'
 
 async function aplicar(sb: SB, ws: string, evento: string, p: any) {
   const emails: string[] = (p.attendees ?? []).map((a: any) => String(a.email ?? '').toLowerCase()).filter(Boolean)
@@ -45,6 +48,9 @@ async function aplicar(sb: SB, ws: string, evento: string, p: any) {
     if (prospect.status === 'agendado') await sb.from('prospects').update({ status: 'qualificado', atualizado_em: agora }).eq('id', prospect.id)
     // O agente retoma e propõe novo horário.
     await upsertEstado(sb, prospect.id, { aguardando: 'nenhum', proxima_acao_em: agora })
+    if (prospect.fonte !== 'demo') {
+      await notificar(sb, ws, { tipo: 'reuniao_cancelada', chave: `${prospect.id}:${p.uid}`, assunto: `Reunião cancelada: ${prospect.nome_empresa}`, titulo: `${prospect.nome_empresa} cancelou a reunião`, linhas: [`Era para ${quando(p.startTime)}.`, 'O agente vai propor um novo horário.'], link: '/pipeline' })
+    }
     return { prospect_id: prospect.id, status_reuniao: 'cancelada' }
   }
 
@@ -56,6 +62,9 @@ async function aplicar(sb: SB, ws: string, evento: string, p: any) {
   // Reunião marcada: propostas abertas ficam obsoletas e o agente espera.
   await sb.from('fila_acoes').update({ status: 'cancelada' }).eq('prospect_id', prospect.id).eq('status', 'pendente')
   await upsertEstado(sb, prospect.id, { aguardando: 'nenhum', proxima_acao_em: null })
+  if (prospect.fonte !== 'demo') {
+    await notificar(sb, ws, { tipo: 'reuniao_agendada', chave: `${prospect.id}:${p.uid}`, assunto: `Reunião marcada: ${prospect.nome_empresa}`, titulo: evento === 'BOOKING_RESCHEDULED' ? `${prospect.nome_empresa} remarcou a reunião` : `${prospect.nome_empresa} marcou uma reunião`, linhas: [`Quando: ${quando(p.startTime)}`, `Com: ${prospect.nome_contato ?? prospect.nome_empresa}`], link: '/pipeline' })
+  }
   return { prospect_id: prospect.id, status_reuniao: 'agendada', reuniao_em: p.startTime }
 }
 

@@ -1,4 +1,4 @@
-import { Pencil, Plus, Users } from 'lucide-react'
+import { Download, Pencil, Plus, Trash2, Users } from 'lucide-react'
 import { useCallback, useEffect, useState } from 'react'
 import { toast } from 'sonner'
 import { Field } from '@/components/campaigns/NewCampaignWizard/fields'
@@ -9,6 +9,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { Input } from '@/components/ui/input'
 import { WorkspaceUsers } from '@/components/setup/WorkspaceUsers'
+import { baixarDadosDoWorkspace, excluirWorkspace } from '@/lib/exportWorkspace'
 import { supabase } from '@/lib/supabase'
 import type { Tables } from '@/types/database'
 
@@ -92,11 +93,67 @@ function WorkspaceDialog({ workspace, onClose, onSaved }: { workspace?: Workspac
   )
 }
 
+function DeleteDialog({ workspace, onClose, onDeleted }: { workspace: Workspace; onClose: () => void; onDeleted: () => void }) {
+  const [texto, setTexto] = useState('')
+  const [busy, setBusy] = useState(false)
+
+  async function confirmar() {
+    setBusy(true)
+    try {
+      await excluirWorkspace(workspace.id)
+      toast.success('Workspace excluído.')
+      onDeleted()
+      onClose()
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : 'Falha ao excluir.')
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  return (
+    <Dialog open onOpenChange={(o) => !o && onClose()}>
+      <DialogContent className="sm:max-w-md">
+        <DialogHeader>
+          <DialogTitle>Excluir {workspace.nome}</DialogTitle>
+          <DialogDescription>
+            Apaga para sempre o workspace e tudo que é dele: campanhas, prospects, conversas, fila, leads, métricas e integrações. Não dá para desfazer. Baixe os dados antes, se o cliente precisar deles.
+          </DialogDescription>
+        </DialogHeader>
+        <Field label={`Digite "${workspace.slug}" para confirmar`}>
+          <Input value={texto} onChange={(e) => setTexto(e.target.value)} />
+        </Field>
+        <div className="flex justify-end gap-2">
+          <Button variant="ghost" onClick={onClose} disabled={busy}>
+            Cancelar
+          </Button>
+          <Button variant="destructive" onClick={confirmar} disabled={busy || texto !== workspace.slug}>
+            Excluir definitivamente
+          </Button>
+        </div>
+      </DialogContent>
+    </Dialog>
+  )
+}
+
 export default function Workspaces() {
   const [items, setItems] = useState<Workspace[]>([])
   const [error, setError] = useState<string | null>(null)
   const [editing, setEditing] = useState<'new' | Workspace | null>(null)
   const [usersOf, setUsersOf] = useState<Workspace | null>(null)
+  const [deleting, setDeleting] = useState<Workspace | null>(null)
+  const [exporting, setExporting] = useState<string | null>(null)
+
+  async function exportar(w: Workspace) {
+    setExporting(w.id)
+    try {
+      await baixarDadosDoWorkspace(w.id, w.slug)
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : 'Falha ao exportar.')
+    } finally {
+      setExporting(null)
+    }
+  }
 
   const load = useCallback(async () => {
     const { data, error: err } = await supabase.from('workspaces').select('*').order('criado_em')
@@ -129,17 +186,24 @@ export default function Workspaces() {
                 {w.slug} · plano {w.plano}
               </p>
             </CardHeader>
-            <CardContent className="flex gap-2">
+            <CardContent className="flex flex-wrap gap-2">
               <Button size="sm" variant="outline" onClick={() => setEditing(w)}>
                 <Pencil /> Editar
               </Button>
               <Button size="sm" variant="outline" onClick={() => setUsersOf(w)}>
                 <Users /> Usuários
               </Button>
+              <Button size="sm" variant="outline" disabled={exporting === w.id} onClick={() => void exportar(w)}>
+                <Download /> {exporting === w.id ? 'Exportando…' : 'Exportar dados'}
+              </Button>
+              <Button size="sm" variant="outline" onClick={() => setDeleting(w)}>
+                <Trash2 /> Excluir
+              </Button>
             </CardContent>
           </Card>
         ))}
       </div>
+      {deleting ? <DeleteDialog workspace={deleting} onClose={() => setDeleting(null)} onDeleted={load} /> : null}
       {usersOf ? <WorkspaceUsers workspace={usersOf} onClose={() => setUsersOf(null)} /> : null}
       {editing ? (
         <WorkspaceDialog workspace={editing === 'new' ? undefined : editing} onClose={() => setEditing(null)} onSaved={load} />

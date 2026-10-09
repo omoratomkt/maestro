@@ -17,6 +17,8 @@ export default function Pipeline() {
   const [view, setView] = useState<'kanban' | 'lista'>('kanban')
   const [selectedId, setSelectedId] = useState<string | null>(null)
   const [importing, setImporting] = useState(false)
+  const [campanhaId, setCampanhaId] = useState<string>('')
+  const visiveis = campanhaId ? prospects.filter((p) => p.campanha_id === campanhaId) : prospects
 
   // O drawer lê do estado vivo, então o status muda também nele ao arrastar.
   const selected: Prospect | null = prospects.find((p) => p.id === selectedId) ?? null
@@ -36,6 +38,19 @@ export default function Pipeline() {
             <List /> Lista
           </Button>
         </div>
+        <select
+          aria-label="Filtrar por campanha"
+          className="h-8 rounded-lg border bg-background px-2 text-sm"
+          value={campanhaId}
+          onChange={(e) => setCampanhaId(e.target.value)}
+        >
+          <option value="">Todas as campanhas</option>
+          {campanhas.map((c) => (
+            <option key={c.id} value={c.id}>
+              {c.nome}
+            </option>
+          ))}
+        </select>
         <Button
           variant="outline"
           size="sm"
@@ -63,15 +78,16 @@ export default function Pipeline() {
           <span className="text-xs">Importe um CSV ou ative uma fonte de busca em uma campanha.</span>
         </div>
       ) : view === 'kanban' ? (
-        <PipelineKanban prospects={prospects} onMove={move} onOpen={(p) => setSelectedId(p.id)} />
+        <PipelineKanban prospects={visiveis} onMove={move} onOpen={(p) => setSelectedId(p.id)} />
       ) : (
-        <PipelineList prospects={prospects} onOpen={(p) => setSelectedId(p.id)} />
+        <PipelineList prospects={visiveis} onOpen={(p) => setSelectedId(p.id)} />
       )}
 
       <ProspectDrawer
         prospect={selected}
         onClose={() => setSelectedId(null)}
         onStatus={move}
+        onChanged={() => void reload()}
         onDeleted={() => {
           setSelectedId(null)
           void reload()
