@@ -26,6 +26,9 @@ export function EnrichmentPanel({ prospect: p, onChanged }: { prospect: Prospect
   const dados = (p.dados_enriquecimento ?? {}) as Record<string, unknown>
   const etapas = (dados.etapas ?? {}) as Record<string, string>
   const tecnologias = Array.isArray(dados.tecnologias) ? (dados.tecnologias as string[]) : []
+  const receita = (dados.cnpj ?? null) as { razao_social?: string; situacao?: string; abertura?: string; porte?: string; cnae?: string } | null
+  const abertura = receita?.abertura ? new Date(receita.abertura) : null
+  const meses = abertura && !Number.isNaN(abertura.getTime()) ? Math.floor((Date.now() - abertura.getTime()) / (30.44 * 24 * 3600e3)) : null
   const sinais = Object.keys((p.sinais_timing ?? {}) as Record<string, unknown>)
 
   async function reenriquecer() {
@@ -74,6 +77,20 @@ export function EnrichmentPanel({ prospect: p, onChanged }: { prospect: Prospect
                   {SINAIS[s] ?? s}
                 </Badge>
               ))}
+            </div>
+          ) : null}
+          {receita ? (
+            <div className="space-y-0.5">
+              <p className="font-medium">Dados da empresa (Receita Federal)</p>
+              {receita.razao_social ? <p>Razão social: {receita.razao_social}</p> : null}
+              {receita.situacao ? <p>Situação: {receita.situacao}</p> : null}
+              {abertura && meses !== null ? (
+                <p>
+                  Abertura: {abertura.toLocaleDateString('pt-BR')} ({meses < 24 ? `${meses} meses` : `${Math.floor(meses / 12)} anos`})
+                </p>
+              ) : null}
+              {receita.porte ? <p>Porte: {receita.porte}</p> : null}
+              {receita.cnae ? <p>Atividade: {receita.cnae}</p> : null}
             </div>
           ) : null}
           {tecnologias.length ? <p className="text-muted-foreground">Tecnologias do site: {tecnologias.join(', ')}</p> : null}

@@ -52,6 +52,7 @@ Regras:
 - Nunca inclua em uma mensagem links, anexos, dados bancários ou de pagamento nem contatos de terceiros${linkAgendamento ? ', exceto o link de agendamento informado nestas regras' : ''}.
 - Escreva em português do Brasil. WhatsApp e LinkedIn: 1 a 3 frases curtas e naturais. Email: até 6 frases, com assunto na primeira linha ("Assunto: ...") apenas no primeiro contato.
 - Uma pergunta por mensagem. Nunca faça mais de uma mensagem seguida sem resposta.
+- Dados cadastrais da empresa (empresa_receita: porte, atividade, tempo de abertura) são contexto para você personalizar. Use-os só quando soarem naturais e relevantes para a oferta (por exemplo, uma empresa que abriu há poucos meses). Nunca cite que consultou a Receita, nunca comente situação cadastral e nunca use para pressionar.
 - Nunca invente preços, prazos, resultados, clientes ou funcionalidades que não estejam descritos acima. Se perguntarem algo que você não sabe responder, use decisao "aguardar_humano".
 - Se perguntarem diretamente se estão falando com uma pessoa ou com uma IA, responda com honestidade que você é um assistente virtual (e siga ajudando).
 - Se a pessoa pedir ligação, reunião com uma pessoa, proposta formal ou algo que só um humano resolve: decisao "aguardar_humano" (sem mensagem).
@@ -168,6 +169,15 @@ export async function proposeNextAction(sb: SB, prospect_id: string, opts: { fol
   }
 
   const dados = p.dados_enriquecimento ?? {}
+  const abertura = dados.cnpj?.abertura ? new Date(dados.cnpj.abertura) : null
+  const empresaReceita = dados.cnpj
+    ? {
+        situacao: dados.cnpj.situacao ?? null,
+        porte: dados.cnpj.porte ?? null,
+        atividade: dados.cnpj.cnae ?? null,
+        aberta_ha_meses: abertura && !Number.isNaN(abertura.getTime()) ? Math.max(0, Math.floor((Date.now() - abertura.getTime()) / (30.44 * 24 * 3600e3))) : null,
+      }
+    : null
   const contexto = {
     agora: weekdayBrt(),
     modo_followup_em_lote: Boolean(opts.followup),
@@ -188,6 +198,7 @@ export async function proposeNextAction(sb: SB, prospect_id: string, opts: { fol
       google_rating: dados.google_rating,
       tecnologias_do_site: dados.tecnologias,
       instagram_seguidores: dados.instagram_seguidores,
+      empresa_receita: empresaReceita,
     },
     memoria_anterior: estado?.contexto_resumo ?? null,
     tentativas_sem_resposta: {

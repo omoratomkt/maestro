@@ -4,8 +4,9 @@
 // POST https://<projeto>.supabase.co/functions/v1/webhook-lead?ws=<workspace_id>&token=<webhook_secret>
 // Corpo JSON (só nome_empresa ou email/whatsapp são necessários):
 //   { "nome_empresa", "nome_contato", "cargo", "email", "whatsapp", "website", "cidade", "estado", "segmento",
-//     "mensagem": "o que a pessoa escreveu", "canal": "email|whatsapp|linkedin|instagram", "campanha_id": "opcional" }
+//     "cnpj" (opcional; usado no enriquecimento), "mensagem": "o que a pessoa escreveu", "canal": "email|whatsapp|linkedin|instagram", "campanha_id": "opcional" }
 // A campanha é: campanha_id do corpo → campaign_id da integração → a única campanha ativa que tem "inbound" nas fontes.
+import { cnpjValido } from '../_shared/cnpj.ts'
 import { handleInbound, authWebhook } from '../_shared/inbound.ts'
 import { carregarSupressoes, estaSuprimido } from '../_shared/suppression.ts'
 import { corsHeaders, digits, errMessage, json, normalizePhone, readJson, serviceClient, type SB } from '../_shared/util.ts'
@@ -31,6 +32,8 @@ Deno.serve(async (req) => {
   if (!b) return json({ error: 'JSON inválido' }, 400)
   const email = typeof b.email === 'string' ? b.email.trim().toLowerCase() : null
   const whatsapp = normalizePhone(b.whatsapp ?? b.telefone)
+  const cnpjInformado = digits(b.cnpj)
+  const cnpj = cnpjInformado.length === 14 && cnpjValido(cnpjInformado) ? cnpjInformado : null // inválido: ignora, não bloqueia o lead
   const nomeEmpresa = String(b.nome_empresa ?? b.empresa ?? b.nome_contato ?? b.nome ?? '').trim()
   if (!email && !whatsapp) return json({ error: 'Informe email ou whatsapp' }, 400)
   if (estaSuprimido(await carregarSupressoes(sb, auth.workspace_id), { email, whatsapp, website: b.website })) return json({ ok: true, suprimido: true })
@@ -58,6 +61,7 @@ Deno.serve(async (req) => {
           email,
           whatsapp,
           website: b.website ?? null,
+          cnpj,
           cidade: b.cidade ?? null,
           estado: b.estado ?? null,
           segmento: b.segmento ?? null,
