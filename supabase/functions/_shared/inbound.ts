@@ -6,6 +6,7 @@ import { qualifyProspect } from './qualify.ts'
 import { notificar } from './notify.ts'
 import { suprimir } from './suppression.ts'
 import { digits, errMessage, timingSafeEqual, type SB } from './util.ts'
+import { decifrarConfig } from './crypto.ts'
 
 export interface InboundMessage {
   workspace_id: string
@@ -165,7 +166,8 @@ export async function authWebhook(sb: SB, url: URL, tipo: string): Promise<{ wor
   const token = url.searchParams.get('token')
   if (!ws || !token) return null
   const { data } = await sb.from('integracoes').select('config, ativo').eq('workspace_id', ws).eq('tipo', tipo).maybeSingle()
-  const secret = data?.config?.webhook_secret
-  if (!data?.ativo || !secret || !timingSafeEqual(token, secret)) return null
-  return { workspace_id: ws, config: data.config }
+  if (!data?.ativo) return null
+  const config = await decifrarConfig(data.config as Record<string, string>)
+  if (!config.webhook_secret || !timingSafeEqual(token, config.webhook_secret)) return null
+  return { workspace_id: ws, config }
 }

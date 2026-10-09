@@ -8,6 +8,7 @@
 import { generateBriefing } from '../_shared/briefing.ts'
 import { notificar } from '../_shared/notify.ts'
 import { corsHeaders, errMessage, json, serviceClient, timingSafeEqual, type SB } from '../_shared/util.ts'
+import { decifrarConfig } from '../_shared/crypto.ts'
 import { upsertEstado } from '../_shared/agent.ts'
 
 async function hmac(secret: string, payload: string): Promise<{ hex: string; b64: string }> {
@@ -75,7 +76,7 @@ Deno.serve(async (req) => {
   if (!ws) return json({ error: 'forbidden' }, 403)
   const sb = serviceClient()
   const { data: integ } = await sb.from('integracoes').select('config, ativo').eq('workspace_id', ws).eq('tipo', 'calcom').maybeSingle()
-  const secret = integ?.config?.webhook_secret
+  const secret = integ?.config ? (await decifrarConfig(integ.config as Record<string, string>)).webhook_secret : undefined
   if (!integ?.ativo || !secret) return json({ error: 'forbidden' }, 403)
 
   const raw = await req.text()

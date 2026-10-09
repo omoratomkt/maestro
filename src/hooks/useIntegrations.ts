@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from 'react'
+import { callFunction } from '@/lib/functions'
 import { supabase } from '@/lib/supabase'
 import type { Json, Tables } from '@/types/database'
 
@@ -52,13 +53,9 @@ export function useIntegrations(workspaceId: string | null) {
 
   const save = async (tipo: string, config: Record<string, Json>, ativo: boolean) => {
     if (!workspaceId) throw new Error('Selecione um workspace.')
-    const { error: err } = await supabase
-      .from('integracoes')
-      .upsert(
-        { workspace_id: workspaceId, tipo, config, ativo, atualizado_em: new Date().toISOString() },
-        { onConflict: 'workspace_id,tipo' },
-      )
-    if (err) throw new Error(err.message)
+    // A gravação passa pela função que criptografa os campos secretos; o banco só guarda o texto cifrado.
+    const r = await callFunction('integration-save', { action: 'salvar', workspace_id: workspaceId, tipo, config, ativo })
+    if (!r.ok) throw new Error(r.error ?? 'Falha ao salvar')
     await reload()
   }
 

@@ -1,5 +1,5 @@
 import { Copy } from 'lucide-react'
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { toast } from 'sonner'
 import { Field } from '@/components/campaigns/NewCampaignWizard/fields'
 import { Button } from '@/components/ui/button'
@@ -7,7 +7,8 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } f
 import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
 import type { Integracao } from '@/hooks/useIntegrations'
-import { maskSecret, randomSecret, type IntegrationDef } from '@/lib/integrations'
+import { callFunction } from '@/lib/functions'
+import { randomSecret, type IntegrationDef } from '@/lib/integrations'
 import type { Json } from '@/types/database'
 
 interface Props {
@@ -28,7 +29,21 @@ export function IntegrationForm({ def, workspaceId, current, onClose, onSave, on
   const [ativo, setAtivo] = useState(current?.ativo ?? true)
   const [saving, setSaving] = useState(false)
 
-  const secretForUrl = values.webhook_secret || (typeof saved.webhook_secret === 'string' ? saved.webhook_secret : '')
+  // O segredo salvo está criptografado no banco; para montar a URL ele é revelado por uma função restrita a super_admin.
+  const [revelado, setRevelado] = useState('')
+  const temWebhookSalvo = Boolean(def.webhook && current && saved.webhook_secret)
+  useEffect(() => {
+    if (!temWebhookSalvo) return
+    let ativo = true
+    void callFunction<{ webhook_secret: string | null }>('integration-save', { action: 'revelar_webhook', workspace_id: workspaceId, tipo: def.tipo }).then((r) => {
+      if (ativo && r.ok && r.data?.webhook_secret) setRevelado(r.data.webhook_secret)
+    })
+    return () => {
+      ativo = false
+    }
+  }, [temWebhookSalvo, workspaceId, def.tipo])
+
+  const secretForUrl = values.webhook_secret || revelado
   const webhookUrl = def.webhook
     ? `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/${def.webhook}?ws=${workspaceId}${def.webhookSigned ? '' : `&token=${secretForUrl || '<segredo>'}`}`
     : null
@@ -66,7 +81,7 @@ export function IntegrationForm({ def, workspaceId, current, onClose, onSave, on
             <Field
               key={f.key}
               label={`${f.label}${f.optional ? ' (opcional)' : ''}`}
-              hint={[f.hint, f.secret && saved[f.key] ? `Salvo: ${maskSecret(saved[f.key])}. Deixe em branco para manter.` : null].filter(Boolean).join(' ') || undefined}
+              hint={[f.hint, f.secret && saved[f.key] ? 'Salvo e criptografado. Deixe em branco para manter.' : null].filter(Boolean).join(' ') || undefined}
             >
               <div className="flex gap-2">
                 {f.multiline ? (

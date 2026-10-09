@@ -6,6 +6,7 @@
 //  · Meta: campo "messages" do WhatsApp Business Account. A verificação (GET) usa o verify_token da integração.
 import { authWebhook, handleInbound } from '../_shared/inbound.ts'
 import { corsHeaders, digits, errMessage, json, serviceClient, timingSafeEqual, type SB } from '../_shared/util.ts'
+import { decifrarConfig } from '../_shared/crypto.ts'
 
 declare const EdgeRuntime: { waitUntil(p: Promise<unknown>): void }
 
@@ -35,7 +36,8 @@ Deno.serve(async (req) => {
     const challenge = url.searchParams.get('hub.challenge')
     if (url.searchParams.get('hub.mode') === 'subscribe' && ws && sent && challenge) {
       const { data } = await sb.from('integracoes').select('config').eq('workspace_id', ws).eq('tipo', 'whatsapp_meta').eq('ativo', true).maybeSingle()
-      if (data?.config?.verify_token && timingSafeEqual(sent, data.config.verify_token)) return new Response(challenge, { status: 200 })
+      const verify = data?.config ? (await decifrarConfig(data.config as Record<string, string>)).verify_token : undefined
+      if (verify && timingSafeEqual(sent, verify)) return new Response(challenge, { status: 200 })
     }
     return json({ error: 'forbidden' }, 403)
   }

@@ -1,4 +1,5 @@
 import type { SupabaseClient } from 'npm:@supabase/supabase-js@2'
+import { decifrarConfig } from './crypto.ts'
 
 /**
  * Lê as credenciais ativas de uma integração do workspace.
@@ -19,5 +20,5 @@ export async function getCredentials(
 
   if (error) throw new Error(`Falha ao ler integração ${tipo}: ${error.message}`)
   if (!data || !data.ativo) throw new Error(`Integração "${tipo}" não configurada ou inativa neste workspace`)
-  return data.config as Record<string, string>
+  return await decifrarConfig(data.config as Record<string, string>)
 }

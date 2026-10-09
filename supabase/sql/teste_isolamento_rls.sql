@@ -115,6 +115,8 @@ BEGIN
   PERFORM set_config('request.jwt.claims', C, true);
   SELECT count(*) INTO n FROM prospects WHERE id IN (PA, PB); r := r || jsonb_build_object('quem','super_admin','teste','enxerga os dois workspaces','esperado','2','obtido',n::text,'ok',n = 2);
   SELECT count(*) INTO n FROM integracoes WHERE workspace_id IN (WA, WB); r := r || jsonb_build_object('quem','super_admin','teste','lê as integrações','esperado','2','obtido',n::text,'ok',n = 2);
+  falhou := false; BEGIN UPDATE integracoes SET config = '{}' WHERE workspace_id = WA; GET DIAGNOSTICS n = ROW_COUNT; falhou := (n = 0); EXCEPTION WHEN OTHERS THEN falhou := true; END;
+  r := r || jsonb_build_object('quem','super_admin','teste','não altera credenciais direto (só pela função que criptografa)','esperado','0 linhas','obtido',CASE WHEN falhou THEN 'bloqueado' ELSE 'passou' END,'ok',falhou);
   SELECT count(*) INTO n FROM ciclo_log;          r := r || jsonb_build_object('quem','super_admin','teste','lê o log global do ciclo','esperado','1+','obtido',n::text,'ok',n >= 1);
   SELECT is_super_admin()::int INTO n;            r := r || jsonb_build_object('quem','super_admin','teste','is_super_admin() é verdadeiro','esperado','1','obtido',n::text,'ok',n = 1);
 
