@@ -76,6 +76,17 @@ A cota semanal da campanha (`volume_semanal`) vale para todas as fontes somadas.
 
 Cada cliente é um workspace e o painel mostra um de cada vez: quem tem acesso a mais de um (super_admin vê todos) troca pelo seletor no topo da barra lateral. Campanhas, pipeline, fila, caixa de entrada, automações, métricas e dashboard filtram pelo workspace ativo. As chaves estrangeiras compostas (migration 017) impedem que uma linha de um workspace aponte para dados de outro.
 
+Em Setup → Workspaces: **Exportar dados** (JSON do cliente, sem credenciais) e **Excluir** (apaga tudo em cascata; exige digitar o slug).
+
+## Avisos, alertas e ajuda
+
+- **Avisos por email** (integração "Avisos por email (Resend)"): lead qualificado, reunião marcada/cancelada, pedido de atendimento humano e resumo diário em dias úteis. Registro em `notificacoes_log`.
+- **Sinais de timing** (`prospect_alerts`): inauguração recente, avaliações negativas, site fora do ar; aparecem no Dashboard.
+- **Métricas por campanha:** foto diária em `campanha_metricas`; Métricas compara campanhas e mostra a evolução.
+- **Prompt injection:** o conteúdo vindo do prospect é tratado como dado; links fora da agenda geram aviso na Fila.
+- **/ajuda:** guia do operador dentro do app. Runbook e procedimento de novo cliente ficam em `docs/` (locais).
+- Dependabot semanal (npm e GitHub Actions).
+
 ## Direitos do titular (LGPD)
 
 Em Pipeline → prospect: **Baixar dados (JSON)** e **Excluir prospect** (apaga mensagens, estado, ações e lead; por padrão adiciona o contato à lista de supressão para ele não voltar). Pedidos de "pare de me contatar" recebidos por mensagem entram sozinhos na lista.
@@ -90,10 +101,10 @@ Em Pipeline → prospect: **Baixar dados (JSON)** e **Excluir prospect** (apaga 
    `agent-loop` e `webhook-*`).
 5. **Testes e verificações:**
    - `npm test` (Vitest: CSV, lista de supressão, wizard, catálogo de integrações) e `npm run check:api` (as consultas do app com junções ainda são aceitas pela API; roda no CI).
-   - **Isolamento entre clientes (RLS):** `SUPABASE_ACCESS_TOKEN=... node scripts/teste-isolamento-rls.mjs` (50 verificações, numa transação com ROLLBACK). Rode depois de **toda** migration.
+   - **Isolamento entre clientes (RLS):** `SUPABASE_ACCESS_TOKEN=... node scripts/teste-isolamento-rls.mjs` (56 verificações, numa transação com ROLLBACK). Rode depois de **toda** migration.
    - Funções: `deno test --allow-env --config supabase/functions/deno.json supabase/functions/_shared/` (horário comercial, contrato da API do Claude, contratos de Google Places, Apollo e Apify).
    Convites e recuperação de senha dependem de **Authentication → URL Configuration** no Supabase: Site URL = URL do app e a mesma URL (`/definir-senha`) na lista de Redirect URLs.
-6. **Dados de demonstração:** `supabase/sql/demo_seed.sql` / `demo_cleanup.sql`. Prospects com `fonte = 'demo'` nunca são
+6. **Dados de demonstração:** `supabase/sql/demo_seed.sql` (+ `demo_seed_extras.sql`: alertas e histórico de métricas) / `demo_cleanup.sql`. Prospects com `fonte = 'demo'` nunca são
    enriquecidos nem contatados, e aprovar uma ação deles **simula** o envio.
 7. **Tipos do banco:** `npm run types` (requer `SUPABASE_ACCESS_TOKEN`).
 
