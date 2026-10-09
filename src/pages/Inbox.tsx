@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useMemo, useRef, useState } from 'react'
 import { ConversationThread } from '@/components/inbox/ConversationThread'
 import { InboxList } from '@/components/inbox/InboxList'
 import { EmptyState, PageShell } from '@/components/layout/PageShell'
@@ -12,6 +12,7 @@ export default function Inbox() {
   const { interacoes, loading: loadingThread } = useProspectDetail(selected)
   const current = messages.find((m) => m.prospect_id === selected)
   const [onlyOpen, setOnlyOpen] = useState(false)
+  const conversaRef = useRef<HTMLDivElement>(null)
   const visible = useMemo(() => (onlyOpen ? messages.filter((m) => m.estado !== 'respondida') : messages), [messages, onlyOpen])
 
   return (
@@ -37,9 +38,13 @@ export default function Inbox() {
               ))}
             </div>
             {truncated ? <p className="text-xs text-muted-foreground">Mostrando as respostas mais recentes.</p> : null}
-            <InboxList messages={visible} selectedProspectId={selected} onSelect={(m) => setSelected(m.prospect_id)} />
+            <InboxList messages={visible} selectedProspectId={selected} onSelect={(m) => {
+                setSelected(m.prospect_id)
+                // No celular a conversa fica abaixo da lista: leva a tela até ela.
+                if (window.matchMedia('(max-width: 1023px)').matches) setTimeout(() => conversaRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 50)
+              }} />
           </div>
-          <div className="rounded-lg border p-4">
+          <div ref={conversaRef} className="scroll-mt-4 rounded-lg border p-4">
             {selected ? (
               <>
                 <h2 className="mb-3 text-sm font-semibold">{current?.prospects?.nome_empresa}</h2>

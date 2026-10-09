@@ -57,7 +57,7 @@ export function PlaybookEditor({ playbook, onClose, onSave }: Props) {
             <Field label="Descrição">
               <Textarea rows={2} value={descricao} onChange={(e) => setDescricao(e.target.value)} />
             </Field>
-            <div className="grid grid-cols-2 items-end gap-4">
+            <div className="grid grid-cols-1 items-end gap-4 sm:grid-cols-2">
               <Field label="Ícone (nome Lucide)" hint="Ex.: store, briefcase, users">
                 <Input value={icone} onChange={(e) => setIcone(e.target.value)} />
               </Field>

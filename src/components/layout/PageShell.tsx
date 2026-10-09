@@ -12,7 +12,7 @@ export function PageShell({ title, description, children }: PageShellProps) {
   return (
     <>
       <Header title={title} description={description} />
-      <div className="flex-1 overflow-auto p-6">{children}</div>
+      <div className="flex-1 overflow-auto p-4 sm:p-6">{children}</div>
     </>
   )
 }

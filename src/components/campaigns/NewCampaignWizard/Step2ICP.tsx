@@ -27,7 +27,7 @@ export function Step2ICP({ draft, onChange, hideName }: Props) {
       <Field label="Regiões" hint="Cidades ou estados.">
         <TagInput value={draft.regioes} onChange={(v) => set('regioes', v)} placeholder="Ex.: São Paulo - SP" />
       </Field>
-      <div className="grid grid-cols-2 gap-4">
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
         <Field label="Score mínimo (0–100)" hint="Abaixo disso o prospect não entra no pipeline.">
           <Input type="number" min={0} max={100} value={draft.score_minimo} onChange={(e) => set('score_minimo', Number(e.target.value))} />
         </Field>

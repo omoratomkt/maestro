@@ -1,6 +1,7 @@
 // deno-lint-ignore-file no-explicit-any
 // Enriquecimento (Camada 2) + score de ICP (Camada 3).
 import { askClaude } from './anthropic.ts'
+import { extrairCnpj } from './cnpj.ts'
 import { getCredentials } from './credentials.ts'
 import { upsertEstado } from './agent.ts'
 import { digits, errMessage, normalizePhone, type SB } from './util.ts'
@@ -94,13 +95,17 @@ export async function enrichProspect(sb: SB, prospect_id: string): Promise<{ sco
   let whatsappStatus = (p.whatsapp ? 'informado' : 'nenhum') as 'validado' | 'informado' | 'nenhum'
   let emailStatus = (p.email ? 'nao_verificado' : 'nenhum') as 'valido' | 'nao_verificado' | 'nenhum'
 
+  let cnpjDoSite: string | null = null
+
   // Site
   if (p.website) {
     await tryStep(etapas, 'site', async () => {
       const url = /^https?:\/\//i.test(p.website) ? p.website : `https://${p.website}`
       const t0 = Date.now()
       const res = await fetch(url, { redirect: 'follow', signal: AbortSignal.timeout(8000), headers: { 'User-Agent': 'Mozilla/5.0 (compatible; MaestroBot/1.0)' } })
-      const html = (await res.text()).slice(0, 60000)
+      const pagina = await res.text()
+      const html = pagina.slice(0, 60000)
+      if (!p.cnpj) cnpjDoSite = extrairCnpj(pagina.slice(0, 400000))
       dados.site = {
         ativo: res.ok,
         https: res.url.startsWith('https://'),
@@ -113,7 +118,8 @@ export async function enrichProspect(sb: SB, prospect_id: string): Promise<{ sco
   } else etapas.site = 'pulada: sem website'
 
   // CNPJ (BrasilAPI, pública e gratuita)
-  const cnpj = digits(p.cnpj)
+  const cnpj = digits(p.cnpj) || cnpjDoSite || ''
+  if (cnpjDoSite && !p.cnpj) upd.cnpj = cnpjDoSite // achado no rodapé do site
   if (cnpj.length === 14) {
     await tryStep(etapas, 'cnpj', async () => {
       const res = await fetch(`https://brasilapi.com.br/api/cnpj/v1/${cnpj}`, { signal: AbortSignal.timeout(8000) })

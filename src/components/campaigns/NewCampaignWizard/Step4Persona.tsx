@@ -16,7 +16,7 @@ export function Step4Persona({ draft, onChange }: Props) {
 
   return (
     <div className="space-y-4">
-      <div className="grid grid-cols-2 gap-4">
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
         <Field label="Nome da persona">
           <Input value={draft.persona_nome} onChange={(e) => set('persona_nome', e.target.value)} placeholder="Ex.: Arthur" />
         </Field>
