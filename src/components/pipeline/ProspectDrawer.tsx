@@ -114,8 +114,8 @@ export function ProspectDrawer({ prospect: p, onClose, onStatus, onDeleted, onCh
               {estado ? (
                 <section className="space-y-1 rounded-lg border p-3">
                   <h3 className="font-semibold">Estado do agente</h3>
-                  <p>Aguardando: {estado.aguardando ?? '—'}</p>
-                  <p>Próxima ação: {fmt(estado.proxima_acao_em) ?? '—'}</p>
+                  <p>Aguardando: {estado.aguardando ?? '-'}</p>
+                  <p>Próxima ação: {fmt(estado.proxima_acao_em) ?? '-'}</p>
                   {estado.contexto_resumo ? <p className="text-muted-foreground">{estado.contexto_resumo}</p> : null}
                 </section>
               ) : null}

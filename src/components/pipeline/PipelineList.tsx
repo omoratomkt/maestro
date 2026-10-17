@@ -21,27 +21,27 @@ export function PipelineList({ prospects, onOpen }: { prospects: Prospect[]; onO
   const columns = useMemo<ColumnDef<Prospect>[]>(
     () => [
       { accessorKey: 'nome_empresa', header: 'Empresa' },
-      { accessorKey: 'nome_contato', header: 'Contato', cell: (c) => c.getValue<string | null>() ?? '—' },
-      { accessorKey: 'cargo', header: 'Cargo', cell: (c) => c.getValue<string | null>() ?? '—' },
+      { accessorKey: 'nome_contato', header: 'Contato', cell: (c) => c.getValue<string | null>() ?? '-' },
+      { accessorKey: 'cargo', header: 'Cargo', cell: (c) => c.getValue<string | null>() ?? '-' },
       {
         accessorKey: 'status',
         header: 'Status',
         cell: (c) => <Badge variant="outline">{labelOf(ALL_PROSPECT_STATUS, c.getValue<string>())}</Badge>,
       },
-      { accessorKey: 'score', header: 'Score', cell: (c) => c.getValue<number | null>() ?? '—' },
+      { accessorKey: 'score', header: 'Score', cell: (c) => c.getValue<number | null>() ?? '-' },
       {
         accessorKey: 'canal_principal',
         header: 'Canal',
         cell: (c) => {
           const v = c.getValue<string | null>()
-          return v ? labelOf(CANAIS_INTERACAO, v) : '—'
+          return v ? labelOf(CANAIS_INTERACAO, v) : '-'
         },
       },
       {
         id: 'local',
         header: 'Local',
         accessorFn: (p) => [p.cidade, p.estado].filter(Boolean).join(' - '),
-        cell: (c) => c.getValue<string>() || '—',
+        cell: (c) => c.getValue<string>() || '-',
       },
     ],
     [],

@@ -72,10 +72,10 @@ export default function SetupDashboard() {
     <PageShell title="Setup" description="Visão geral da administração do Maestro">
       <div className="space-y-6">
         <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-          <MetricCard label="Workspaces ativos" value={counts?.[0] ?? '—'} icon={Building2} />
-          <MetricCard label="Playbooks ativos" value={counts?.[1] ?? '—'} icon={Workflow} />
-          <MetricCard label="Campanhas ativas" value={counts?.[2] ?? '—'} icon={Megaphone} />
-          <MetricCard label="Integrações ativas" value={counts?.[3] ?? '—'} icon={Plug} />
+          <MetricCard label="Workspaces ativos" value={counts?.[0] ?? '-'} icon={Building2} />
+          <MetricCard label="Playbooks ativos" value={counts?.[1] ?? '-'} icon={Workflow} />
+          <MetricCard label="Campanhas ativas" value={counts?.[2] ?? '-'} icon={Megaphone} />
+          <MetricCard label="Integrações ativas" value={counts?.[3] ?? '-'} icon={Plug} />
         </div>
 
         <Card>
@@ -85,7 +85,7 @@ export default function SetupDashboard() {
               {ciclos === null ? null : atrasado ? (
                 <Badge variant="destructive">{minutos === null ? 'nenhuma rodada registrada' : `parado há ${minutos} min`}</Badge>
               ) : (
-                <Badge>ok — última rodada há {minutos} min</Badge>
+                <Badge>ok, última rodada há {minutos} min</Badge>
               )}
             </CardTitle>
           </CardHeader>
@@ -124,7 +124,7 @@ export default function SetupDashboard() {
                           <td className="px-3 py-2">{(c.duracao_ms / 1000).toFixed(1)} s</td>
                           <td className="px-3 py-2">
                             {c.erros === 0 ? (
-                              '—'
+                              '-'
                             ) : (
                               <details>
                                 <summary className="cursor-pointer text-destructive">{c.erros}</summary>

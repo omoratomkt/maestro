@@ -110,7 +110,7 @@ export default function Suppressions() {
               <tr key={s.id} className="border-t">
                 <td className="px-3 py-2">{TIPOS_SUPRESSAO.find((t) => t.value === s.tipo)?.label ?? s.tipo}</td>
                 <td className="px-3 py-2 font-mono">{s.valor}</td>
-                <td className="px-3 py-2 text-muted-foreground">{s.motivo ?? '—'}</td>
+                <td className="px-3 py-2 text-muted-foreground">{s.motivo ?? '-'}</td>
                 <td className="px-3 py-2">{s.origem === 'resposta' ? 'Pediu para sair' : s.origem === 'importacao' ? 'Importação' : 'Manual'}</td>
                 <td className="px-3 py-2">{new Date(s.criado_em).toLocaleDateString('pt-BR')}</td>
                 <td className="px-2 py-1 text-right">

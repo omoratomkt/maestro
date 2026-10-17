@@ -55,7 +55,7 @@ export default function Automations() {
                         </div>
                         <div>
                           <dt className="text-muted-foreground">Sucesso</dt>
-                          <dd className="font-medium">{f.taxa_sucesso !== null ? `${f.taxa_sucesso}%` : '—'}</dd>
+                          <dd className="font-medium">{f.taxa_sucesso !== null ? `${f.taxa_sucesso}%` : '-'}</dd>
                         </div>
                       </dl>
                       <Button size="sm" variant="outline" onClick={() => toggle(f.id, !f.ativo)}>
@@ -85,7 +85,7 @@ export default function Automations() {
                 {log.map((a) => (
                   <li key={a.id} className="flex items-center justify-between gap-3 px-3 py-2">
                     <span className="truncate">
-                      <b>{a.prospects?.nome_empresa ?? 'Prospect removido'}</b> — {a.tipo} via {canalLabel(a.canal)}
+                      <b>{a.prospects?.nome_empresa ?? 'Prospect removido'}</b> · {a.tipo} via {canalLabel(a.canal)}
                     </span>
                     <span className="flex shrink-0 items-center gap-2 text-muted-foreground">
                       <Badge variant={a.erro_execucao ? 'destructive' : 'outline'}>{a.erro_execucao ? 'erro' : a.status}</Badge>

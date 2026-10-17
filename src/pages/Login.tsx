@@ -1,4 +1,4 @@
-import { Sparkles } from 'lucide-react'
+import { Logo } from '@/components/layout/Logo'
 import { toast } from 'sonner'
 import { useState, type FormEvent } from 'react'
 import { Navigate } from 'react-router-dom'
@@ -38,9 +38,7 @@ export default function Login() {
     <div className="flex min-h-screen items-center justify-center p-4">
       <Card className="w-full max-w-sm">
         <CardHeader>
-          <div className="mb-2 flex size-9 items-center justify-center rounded-md bg-primary text-primary-foreground">
-            <Sparkles className="size-4" />
-          </div>
+          <Logo escuro className="mb-2 size-9" />
           <CardTitle>Maestro</CardTitle>
           <CardDescription>Entre com sua conta para acessar o painel.</CardDescription>
         </CardHeader>

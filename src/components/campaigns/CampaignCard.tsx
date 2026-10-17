@@ -67,7 +67,7 @@ export function CampaignCard({ campanha: c, onStatus, onEdit, onSearch, onDelete
           </div>
           <div>
             <dt className="text-muted-foreground">Volume semanal</dt>
-            <dd className="font-medium">{c.volume_semanal ?? '—'}</dd>
+            <dd className="font-medium">{c.volume_semanal ?? '-'}</dd>
           </div>
         </dl>
         <div className="flex flex-wrap gap-1">

@@ -13,7 +13,7 @@ import { useCampaignComparison, useHistory, useMetrics } from '@/hooks/useMetric
 const PERIODOS = [7, 30, 90]
 
 function formatHours(h: number | null) {
-  if (h === null) return '—'
+  if (h === null) return '-'
   return h < 48 ? `${h.toFixed(1)} h` : `${(h / 24).toFixed(1)} dias`
 }
 
@@ -26,7 +26,7 @@ export default function Metrics() {
   const historico = useHistory(dias, campanhaId)
 
   const taxaQualificacao =
-    data && data.prospects_processados > 0 ? `${((data.qualificados / data.prospects_processados) * 100).toFixed(1)}%` : '—'
+    data && data.prospects_processados > 0 ? `${((data.qualificados / data.prospects_processados) * 100).toFixed(1)}%` : '-'
 
   return (
     <PageShell title="Métricas" description="Volume, respostas, qualificação e custo por lead">
@@ -71,13 +71,13 @@ export default function Metrics() {
             <MetricCard label="Tempo médio até qualificação" value={formatHours(data.horas_ate_qualificar)} icon={Clock} />
             <MetricCard
               label="Custo por lead qualificado"
-              value={data.custo_por_lead_usd !== null ? `US$ ${Number(data.custo_por_lead_usd).toFixed(2)}` : '—'}
+              value={data.custo_por_lead_usd !== null ? `US$ ${Number(data.custo_por_lead_usd).toFixed(2)}` : '-'}
               icon={Coins}
               hint={`Custo de IA no período: US$ ${Number(data.custo_total_usd).toFixed(2)} (APIs de dados não incluídas)`}
             />
             <MetricCard
               label="Respostas / enviadas"
-              value={data.mensagens_enviadas > 0 ? `${((data.respostas / data.mensagens_enviadas) * 100).toFixed(1)}%` : '—'}
+              value={data.mensagens_enviadas > 0 ? `${((data.respostas / data.mensagens_enviadas) * 100).toFixed(1)}%` : '-'}
               icon={MessageSquareReply}
             />
           </div>
@@ -134,7 +134,7 @@ export default function Metrics() {
                           <td className="px-3 py-2">{c.prospects_total}</td>
                           <td className="px-3 py-2">{c.contatados}</td>
                           <td className="px-3 py-2">{c.responderam}</td>
-                          <td className="px-3 py-2">{c.contatados > 0 ? `${Math.round((c.responderam / c.contatados) * 100)}%` : '—'}</td>
+                          <td className="px-3 py-2">{c.contatados > 0 ? `${Math.round((c.responderam / c.contatados) * 100)}%` : '-'}</td>
                           <td className="px-3 py-2">{c.qualificados}</td>
                           <td className="px-3 py-2">US$ {Number(c.custo_usd).toFixed(2)}</td>
                         </tr>

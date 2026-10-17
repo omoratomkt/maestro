@@ -1,4 +1,4 @@
-import { Sparkles } from 'lucide-react'
+import { Logo } from '@/components/layout/Logo'
 import { useState, type FormEvent } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { toast } from 'sonner'
@@ -32,9 +32,7 @@ export default function SetPassword() {
     <div className="flex min-h-screen items-center justify-center p-4">
       <Card className="w-full max-w-sm">
         <CardHeader>
-          <div className="mb-2 flex size-9 items-center justify-center rounded-md bg-primary text-primary-foreground">
-            <Sparkles className="size-4" />
-          </div>
+          <Logo escuro className="mb-2 size-9" />
           <CardTitle>Definir senha</CardTitle>
           <CardDescription>{session ? 'Escolha uma senha para acessar o Maestro.' : 'Validando o link…'}</CardDescription>
         </CardHeader>

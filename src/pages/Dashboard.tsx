@@ -61,12 +61,12 @@ export default function Dashboard() {
                         <p className="truncate font-medium">{l.prospects?.nome_empresa ?? 'Prospect removido'}</p>
                         <p className="truncate text-xs text-muted-foreground">
                           {[l.prospects?.nome_contato, l.prospects?.cargo].filter(Boolean).join(' · ')}
-                          {l.proximo_passo ? ` — ${l.proximo_passo}` : ''}
+                          {l.proximo_passo ? ` · ${l.proximo_passo}` : ''}
                         </p>
                       </div>
                       <div className="flex shrink-0 items-center gap-2">
                         <Badge variant="outline">{l.status_reuniao}</Badge>
-                        {l.score_temperatura !== null ? <Badge>{l.score_temperatura}/10</Badge> : null}
+                        {l.score_temperatura !== null ? <Badge variant="destaque">{l.score_temperatura}/10</Badge> : null}
                       </div>
                     </li>
                   ))}

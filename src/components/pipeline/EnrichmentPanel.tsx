@@ -66,7 +66,7 @@ export function EnrichmentPanel({ prospect: p, onChanged }: { prospect: Prospect
                 </div>
               )
             })}
-            <p className="pt-1 font-medium">Score total: {p.score ?? '—'}/100</p>
+            <p className="pt-1 font-medium">Score total: {p.score ?? '-'}/100</p>
           </div>
           {typeof detalhes.descarte === 'string' ? <p className="text-destructive">Descartado: {detalhes.descarte}</p> : null}
 

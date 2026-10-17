@@ -29,7 +29,7 @@ export default function Queue() {
               {falhas.map((a) => (
                 <div key={a.id} className="space-y-2 rounded-lg border border-destructive/40 p-3 text-xs">
                   <p className="font-medium">
-                    {a.prospects?.nome_empresa ?? 'Prospect removido'} — {a.tipo} via {canalLabel(a.canal)}
+                    {a.prospects?.nome_empresa ?? 'Prospect removido'} · {a.tipo} via {canalLabel(a.canal)}
                   </p>
                   <p className="whitespace-pre-wrap rounded bg-muted px-2 py-1.5">{a.mensagem_editada ?? a.mensagem}</p>
                   <p className="text-destructive">{a.erro_execucao}</p>

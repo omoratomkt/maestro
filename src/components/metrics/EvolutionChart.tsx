@@ -15,9 +15,9 @@ export function EvolutionChart({ data }: { data: HistoryPoint[] }) {
         <YAxis allowDecimals={false} tick={{ fontSize: 12 }} />
         <Tooltip />
         <Legend />
-        <Line type="monotone" dataKey="mensagens_enviadas" name="Mensagens enviadas" stroke="var(--color-muted-foreground)" strokeWidth={2} dot={false} />
-        <Line type="monotone" dataKey="respostas" name="Respostas" stroke="var(--color-primary)" strokeWidth={2} dot={false} />
-        <Line type="monotone" dataKey="qualificados" name="Qualificados" stroke="var(--color-destructive)" strokeWidth={2} dot={false} />
+        <Line type="monotone" dataKey="mensagens_enviadas" name="Mensagens enviadas" stroke="var(--color-chart-4)" strokeWidth={2} dot={false} />
+        <Line type="monotone" dataKey="respostas" name="Respostas" stroke="var(--color-chart-2)" strokeWidth={2} dot={false} />
+        <Line type="monotone" dataKey="qualificados" name="Qualificados" stroke="var(--color-chart-3)" strokeWidth={2} dot={false} />
       </LineChart>
     </ResponsiveContainer>
   )

@@ -46,7 +46,7 @@ export function QueueItem({ item, onApprove, onReject, onAutomate }: Props) {
             <CardTitle>{p?.nome_empresa ?? 'Prospect removido'}</CardTitle>
             <p className="text-xs text-muted-foreground">
               {[p?.nome_contato, p?.cargo].filter(Boolean).join(' · ')}
-              {item.campanhas?.nome ? ` — ${item.campanhas.nome}` : ''}
+              {item.campanhas?.nome ? ` · ${item.campanhas.nome}` : ''}
             </p>
           </div>
           <span className="shrink-0 text-xs text-muted-foreground">

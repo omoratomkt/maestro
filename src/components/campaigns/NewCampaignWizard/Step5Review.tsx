@@ -5,7 +5,7 @@ function Row({ label, children }: { label: string; children: React.ReactNode }) 
   return (
     <div className="grid grid-cols-[9rem_1fr] gap-2 border-b py-2 text-xs last:border-0">
       <dt className="text-muted-foreground">{label}</dt>
-      <dd>{children || '—'}</dd>
+      <dd>{children || '-'}</dd>
     </div>
   )
 }
@@ -26,7 +26,7 @@ export function Step5Review({ draft: d }: { draft: CampaignDraft }) {
         <Row label="Exclusões">{d.criterios_exclusao.join(', ')}</Row>
         <Row label="Canais">{d.canais.map((v) => labelOf(CANAIS, v)).join(', ')}</Row>
         <Row label="Fontes">{d.fontes.map((v) => labelOf(FONTES, v)).join(', ')}</Row>
-        <Row label="Persona">{`${d.persona_nome} — ${labelOf(TONS, d.persona_tom)}`}</Row>
+        <Row label="Persona">{`${d.persona_nome} · ${labelOf(TONS, d.persona_tom)}`}</Row>
         <Row label="Produto">{d.persona_produto}</Row>
         <Row label="Argumentos">{d.persona_argumentos.join(' · ')}</Row>
         <Row label="Objeções">{d.persona_objecoes.length ? `${d.persona_objecoes.length} cadastrada(s)` : ''}</Row>

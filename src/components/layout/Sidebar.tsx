@@ -9,7 +9,6 @@ import {
   Plug,
   ShieldBan,
   ShieldCheck,
-  Sparkles,
   LogOut,
   Workflow,
   Zap,
@@ -29,6 +28,7 @@ import {
   SidebarMenuButton,
   SidebarMenuItem,
 } from '@/components/ui/sidebar'
+import { Logo } from '@/components/layout/Logo'
 import { usePendingQueueCount } from '@/hooks/useQueue'
 import { useAuth } from '@/lib/auth'
 
@@ -69,18 +69,16 @@ export function Sidebar() {
     <UiSidebar>
       <SidebarHeader className="px-4 py-4">
         <div className="flex items-center gap-2">
-          <div className="flex size-8 items-center justify-center rounded-md bg-primary text-primary-foreground">
-            <Sparkles className="size-4" />
-          </div>
+          <Logo />
           <div className="leading-tight">
-            <p className="text-sm font-semibold">Maestro</p>
-            <p className="text-xs text-muted-foreground">{inSetup ? 'Setup' : 'Painel operacional'}</p>
+            <p className="display text-[15px] font-bold">Maestro</p>
+            <p className="text-xs text-sidebar-foreground/70">{inSetup ? 'Setup' : 'Painel operacional'}</p>
           </div>
         </div>
         {workspaces.length > 1 ? (
           <select
             aria-label="Cliente (workspace)"
-            className="mt-3 h-8 w-full rounded-lg border bg-background px-2 text-sm"
+            className="mt-3 h-8 w-full rounded-lg border border-sidebar-border bg-white/10 px-2 text-sm text-sidebar-foreground [&>option]:text-navy"
             value={workspaceId ?? ''}
             onChange={(e) => setWorkspaceId(e.target.value)}
           >
