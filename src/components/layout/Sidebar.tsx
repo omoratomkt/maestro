@@ -29,6 +29,7 @@ import {
   SidebarMenuItem,
 } from '@/components/ui/sidebar'
 import { Logo } from '@/components/layout/Logo'
+import { SeletorTema } from '@/components/layout/SeletorTema'
 import { usePendingQueueCount } from '@/hooks/useQueue'
 import { useAuth } from '@/lib/auth'
 
@@ -69,7 +70,7 @@ export function Sidebar() {
     <UiSidebar>
       <SidebarHeader className="px-4 py-4">
         <div className="flex items-center gap-2">
-          <Logo />
+          <Logo naLateral />
           <div className="leading-tight">
             <p className="display text-[15px] font-bold">Maestro</p>
             <p className="text-xs text-sidebar-foreground/70">{inSetup ? 'Setup' : 'Painel operacional'}</p>
@@ -78,7 +79,7 @@ export function Sidebar() {
         {workspaces.length > 1 ? (
           <select
             aria-label="Cliente (workspace)"
-            className="mt-3 h-8 w-full rounded-lg border border-sidebar-border bg-white/10 px-2 text-sm text-sidebar-foreground [&>option]:text-navy"
+            className="mt-3 h-8 w-full rounded-lg border border-sidebar-border bg-sidebar-accent px-2 text-sm text-sidebar-foreground [&>option]:bg-card [&>option]:text-foreground"
             value={workspaceId ?? ''}
             onChange={(e) => setWorkspaceId(e.target.value)}
           >
@@ -116,6 +117,9 @@ export function Sidebar() {
       </SidebarContent>
 
       <SidebarFooter>
+        <div className="px-2 pb-1">
+          <SeletorTema />
+        </div>
         <SidebarMenu>
           {isSuperAdmin ? (
             <SidebarMenuItem>

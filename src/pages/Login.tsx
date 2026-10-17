@@ -38,7 +38,7 @@ export default function Login() {
     <div className="flex min-h-screen items-center justify-center p-4">
       <Card className="w-full max-w-sm">
         <CardHeader>
-          <Logo escuro className="mb-2 size-9" />
+          <Logo className="mb-2 size-12" />
           <CardTitle>Maestro</CardTitle>
           <CardDescription>Entre com sua conta para acessar o painel.</CardDescription>
         </CardHeader>

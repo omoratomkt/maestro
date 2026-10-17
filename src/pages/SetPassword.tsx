@@ -32,7 +32,7 @@ export default function SetPassword() {
     <div className="flex min-h-screen items-center justify-center p-4">
       <Card className="w-full max-w-sm">
         <CardHeader>
-          <Logo escuro className="mb-2 size-9" />
+          <Logo className="mb-2 size-12" />
           <CardTitle>Definir senha</CardTitle>
           <CardDescription>{session ? 'Escolha uma senha para acessar o Maestro.' : 'Validando o link…'}</CardDescription>
         </CardHeader>
