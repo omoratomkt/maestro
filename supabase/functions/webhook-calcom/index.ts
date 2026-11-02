@@ -98,6 +98,6 @@ Deno.serve(async (req) => {
     return json({ ok: true, ...(await aplicar(sb, ws, evento, body.payload ?? {})) })
   } catch (e) {
     console.error('webhook-calcom', errMessage(e))
-    return json({ error: errMessage(e) }, 500)
+    return json({ error: 'Erro interno' }, 500)
   }
 })

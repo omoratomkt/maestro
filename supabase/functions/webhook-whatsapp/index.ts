@@ -55,8 +55,9 @@ Deno.serve(async (req) => {
   const auth = await authWebhook(sb, url, isMeta ? 'whatsapp_meta' : 'whatsapp_evolution')
   if (!auth) return json({ error: 'forbidden' }, 403)
 
-  // Meta: assinatura HMAC, se o app_secret estiver configurado
-  if (isMeta && auth.config.app_secret) {
+  // Meta: a assinatura HMAC é obrigatória. Sem o app_secret configurado, a mensagem é recusada (o token na URL, sozinho, não basta).
+  if (isMeta && !auth.config.app_secret) return json({ error: 'forbidden' }, 403)
+  if (isMeta) {
     const expected = `sha256=${await hmacHex(auth.config.app_secret, raw)}`
     if (!timingSafeEqual(req.headers.get('x-hub-signature-256') ?? '', expected)) return json({ error: 'assinatura inválida' }, 403)
   }

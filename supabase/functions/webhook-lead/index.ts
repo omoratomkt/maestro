@@ -7,9 +7,11 @@
 //     "cnpj" (opcional; usado no enriquecimento), "mensagem": "o que a pessoa escreveu", "canal": "email|whatsapp|linkedin|instagram", "campanha_id": "opcional" }
 // A campanha é: campanha_id do corpo → campaign_id da integração → a única campanha ativa que tem "inbound" nas fontes.
 import { cnpjValido } from '../_shared/cnpj.ts'
+import { excedeuLimiteDeNovos, MAX_CORPO_BYTES, texto } from '../_shared/entrada_publica.ts'
 import { handleInbound, authWebhook } from '../_shared/inbound.ts'
 import { carregarSupressoes, estaSuprimido } from '../_shared/suppression.ts'
-import { corsHeaders, digits, errMessage, json, normalizePhone, readJson, serviceClient, type SB } from '../_shared/util.ts'
+import { corsHeaders, digits, errMessage, json, normalizePhone, serviceClient, type SB } from '../_shared/util.ts'
+
 
 async function escolherCampanha(sb: SB, ws: string, config: Record<string, string>, pedida?: string): Promise<string | null> {
   const id = pedida ?? config.campaign_id
@@ -28,13 +30,21 @@ Deno.serve(async (req) => {
   const auth = await authWebhook(sb, new URL(req.url), 'inbound_webhook')
   if (!auth) return json({ error: 'forbidden' }, 403)
 
-  const b = await readJson(req)
-  if (!b) return json({ error: 'JSON inválido' }, 400)
+  const raw = await req.text()
+  if (raw.length > MAX_CORPO_BYTES) return json({ error: 'Corpo grande demais' }, 413)
+  let b: any
+  try {
+    b = JSON.parse(raw)
+  } catch {
+    return json({ error: 'JSON inválido' }, 400)
+  }
+  if (!b || typeof b !== 'object' || Array.isArray(b)) return json({ error: 'JSON inválido' }, 400)
+  if (await excedeuLimiteDeNovos(sb, auth.workspace_id)) return json({ error: 'Muitas solicitações. Tente novamente mais tarde.' }, 429)
   const email = typeof b.email === 'string' ? b.email.trim().toLowerCase() : null
   const whatsapp = normalizePhone(b.whatsapp ?? b.telefone)
   const cnpjInformado = digits(b.cnpj)
   const cnpj = cnpjInformado.length === 14 && cnpjValido(cnpjInformado) ? cnpjInformado : null // inválido: ignora, não bloqueia o lead
-  const nomeEmpresa = String(b.nome_empresa ?? b.empresa ?? b.nome_contato ?? b.nome ?? '').trim()
+  const nomeEmpresa = String(b.nome_empresa ?? b.empresa ?? b.nome_contato ?? b.nome ?? '').trim().slice(0, 200)
   if (!email && !whatsapp) return json({ error: 'Informe email ou whatsapp' }, 400)
   if (estaSuprimido(await carregarSupressoes(sb, auth.workspace_id), { email, whatsapp, website: b.website })) return json({ ok: true, suprimido: true })
 
@@ -56,19 +66,19 @@ Deno.serve(async (req) => {
           workspace_id: auth.workspace_id,
           campanha_id,
           nome_empresa: nomeEmpresa || email || `Contato ${digits(whatsapp)}`,
-          nome_contato: b.nome_contato ?? b.nome ?? null,
-          cargo: b.cargo ?? null,
+          nome_contato: texto(b.nome_contato ?? b.nome, 200),
+          cargo: texto(b.cargo, 200),
           email,
           whatsapp,
-          website: b.website ?? null,
+          website: texto(b.website, 300),
           cnpj,
-          cidade: b.cidade ?? null,
-          estado: b.estado ?? null,
-          segmento: b.segmento ?? null,
+          cidade: texto(b.cidade, 120),
+          estado: texto(b.estado, 60),
+          segmento: texto(b.segmento, 200),
           fonte: 'inbound',
           fonte_id: `inbound:${email ?? whatsapp}`,
           status: 'novo',
-          dados_enriquecimento: { mensagem_inicial: b.mensagem ?? null, origem_detalhe: b.origem ?? b.utm ?? null },
+          dados_enriquecimento: { mensagem_inicial: texto(b.mensagem, 2000), origem_detalhe: texto(b.origem ?? b.utm, 200) },
         })
         .select('id')
         .single()
@@ -79,10 +89,11 @@ Deno.serve(async (req) => {
     // Se a pessoa escreveu algo e o prospect já existia, registra como mensagem recebida (aciona triagem e agente).
     if (existente && b.mensagem) {
       const canal = ['email', 'whatsapp', 'linkedin', 'instagram'].includes(b.canal) ? b.canal : email ? 'email' : 'whatsapp'
-      await handleInbound(sb, { workspace_id: auth.workspace_id, canal, quem: canal === 'email' ? { email: email! } : { whatsapp: whatsapp! }, texto: String(b.mensagem), metadata: { provider: 'webhook-lead' } })
+      await handleInbound(sb, { workspace_id: auth.workspace_id, canal, quem: canal === 'email' ? { email: email! } : { whatsapp: whatsapp! }, texto: String(b.mensagem).slice(0, 2000), metadata: { provider: 'webhook-lead' } })
     }
     return json({ ok: true, prospect_id, novo: !existente }, existente ? 200 : 201)
   } catch (e) {
-    return json({ error: errMessage(e) }, 500)
+    console.error('webhook-lead', errMessage(e))
+    return json({ error: 'Erro interno' }, 500)
   }
 })

@@ -28,3 +28,24 @@ Deno.test('opt-out por palavra-chave: contato desconhecido não gera supressão'
   assertEquals(r.encontrado, false)
   assert(!chamadas.some((c) => c.tabela === 'supressoes'))
 })
+
+const tocouNoModelo = (chamadas: { tabela: string; op: string; args: any[] }[]) =>
+  chamadas.some((c) => c.tabela === 'custos_uso' || (c.tabela === 'integracoes' && c.args.includes('anthropic')))
+
+Deno.test('escalada: áudio pausa o agente e chama uma pessoa, sem chamar o modelo', async () => {
+  const { sb, chamadas } = fakeSb({ prospects: [prospect], prospect_interacoes: [{ id: 'i1' }] })
+  const r = await handleInbound(sb, { workspace_id: 'ws1', canal: 'whatsapp', quem: { whatsapp: '5511999998888' }, texto: '[áudio]', tipo: 'audio' })
+  assertEquals(r.proximo, 'aguardando humano')
+  assert(!tocouNoModelo(chamadas))
+  const estado = chamadas.find((c) => c.tabela === 'prospect_estado' && c.op === 'upsert')
+  assertEquals(estado?.args[0].aguardando, 'nenhum')
+  assertEquals(estado?.args[0].proxima_acao_em, null)
+})
+
+Deno.test('escalada: pedido jurídico pausa o agente, sem chamar o modelo e sem descadastrar', async () => {
+  const { sb, chamadas } = fakeSb({ prospects: [prospect], prospect_interacoes: [{ id: 'i1' }] })
+  const r = await handleInbound(sb, { workspace_id: 'ws1', canal: 'whatsapp', quem: { whatsapp: '5511999998888' }, texto: 'Vou procurar meu advogado sobre isso' })
+  assertEquals(r.proximo, 'aguardando humano')
+  assert(!tocouNoModelo(chamadas))
+  assert(!chamadas.some((c) => c.tabela === 'supressoes'), 'escalar não é descadastrar')
+})

@@ -2,6 +2,7 @@
 // Tratamento comum de mensagens recebidas (usado pelos 4 webhooks).
 import { askClaude } from './anthropic.ts'
 import { proposeNextAction, upsertEstado } from './agent.ts'
+import { ehMensagemNaoTextual, motivoDeEscalada } from './escalada.ts'
 import { ehOptOut } from './optout.ts'
 import { qualifyProspect } from './qualify.ts'
 import { notificar } from './notify.ts'
@@ -113,6 +114,27 @@ export async function handleInbound(sb: SB, m: InboundMessage): Promise<InboundR
     await sb.from('prospect_interacoes').update({ metadata: { ...(m.metadata ?? {}), message_id: m.message_id, triagem: { intencao: 'opt_out', resumo: 'reconhecido por palavra-chave' } } }).eq('id', row.id)
     result.triagem = 'opt_out'
     result.proximo = 'suprimido'
+    return result
+  }
+
+  // Escalada por código, também antes do modelo: mensagem que a IA não entende (áudio, imagem, documento) ou assunto que ela
+  // não trata (jurídico, reclamação, pedido de uma pessoa). A IA para, o contato fica aguardando humano e o operador é avisado.
+  const motivo = ehMensagemNaoTextual(m.tipo) ? 'mensagem em áudio, imagem ou documento (a IA não lê)' : motivoDeEscalada(m.texto)
+  if (motivo) {
+    await upsertEstado(sb, p.id, { aguardando: 'nenhum', proxima_acao_em: null, contexto_resumo: `Escalado para humano: ${motivo}` })
+    await sb.from('prospect_interacoes').update({ metadata: { ...(m.metadata ?? {}), message_id: m.message_id, triagem: { intencao: 'pedido_humano', resumo: motivo } } }).eq('id', row.id)
+    result.triagem = 'pedido_humano'
+    result.proximo = 'aguardando humano'
+    if (p.fonte !== 'demo') {
+      await notificar(sb, p.workspace_id, {
+        tipo: 'aguarda_humano',
+        chave: row.id,
+        assunto: `${p.nome_empresa} precisa de você`,
+        titulo: `${p.nome_empresa} escreveu e o agente não responde`,
+        linhas: [`Motivo: ${motivo}`, m.texto.trim() ? `Mensagem: "${m.texto.slice(0, 300)}"` : 'Abra a conversa para ver o conteúdo.'],
+        link: '/inbox',
+      }).catch(() => {})
+    }
     return result
   }
 
