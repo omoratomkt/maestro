@@ -3,7 +3,7 @@ import { assert, assertEquals, assertRejects } from 'jsr:@std/assert@1'
 import { askClaude } from './anthropic.ts'
 
 /** Banco de mentira: só o que askClaude usa (integracoes.maybeSingle e custos_uso.insert). */
-function fakeSb(opts: { gastoHoje?: number; limite?: number } = {}) {
+function fakeSb(opts: { gastoHoje?: number; limite?: number; avisos?: boolean } = {}) {
   const custos: any[] = []
   const sb: any = {
     from(table: string) {
@@ -11,9 +11,16 @@ function fakeSb(opts: { gastoHoje?: number; limite?: number } = {}) {
         select: () => q,
         eq: () => q,
         gte: () => q,
+        upsert: () => q,
+        delete: () => q,
+        // notificacoes_log: upsert(...).select('id') devolve a reserva do aviso
+        then: (ok: (v: unknown) => unknown) => ok({ data: table === 'notificacoes_log' ? [{ id: 'n1' }] : null, error: null }),
         limit: () => Promise.resolve({ data: table === 'custos_uso' ? [{ custo_usd: opts.gastoHoje ?? 0 }] : null, error: null }),
         maybeSingle: () =>
-          Promise.resolve({ data: table === 'integracoes' ? { ativo: true, config: { api_key: 'sk-test', ...(opts.limite ? { limite_diario_usd: opts.limite } : {}) } } : null, error: null }),
+          Promise.resolve({
+            data: table === 'integracoes' ? { ativo: true, config: { api_key: 'sk-test', ...(opts.limite ? { limite_diario_usd: opts.limite } : {}), ...(opts.avisos ? { remetente: 'a@b.com', destinatarios: 'op@b.com' } : {}) } } : null,
+            error: null,
+          }),
         insert: (row: any) => {
           custos.push(row)
           return Promise.resolve({ error: null })
@@ -113,6 +120,47 @@ Deno.test('askClaude: respeita o teto diário de IA (padrão US$ 10) sem chamar 
     const ok = await askClaude<{ x: string }>(fakeSb({ gastoHoje: 10.5, limite: 20 }).sb, { workspace_id: 'ws', origem: 'agent', tier: 'sonnet', system: 's', user: 'u', schema })
     assertEquals(ok, { x: 'a' })
     assertEquals(f.calls.length, 1)
+  } finally {
+    f.restore()
+  }
+})
+
+const resendCalls = (f: { calls: { url: string }[] }) => f.calls.filter((c) => c.url.includes('api.resend.com'))
+
+Deno.test('teto de IA: em 80% avisa por email e a chamada segue', async () => {
+  const f = stubFetch(message('{"x":"a"}'))
+  try {
+    const out = await askClaude<{ x: string }>(fakeSb({ gastoHoje: 8.5, avisos: true }).sb, { workspace_id: 'ws', origem: 'agent', tier: 'sonnet', system: 's', user: 'u', schema })
+    assertEquals(out, { x: 'a' })
+    const avisos = resendCalls(f)
+    assertEquals(avisos.length, 1)
+    assertEquals(f.calls.filter((c) => c.url.endsWith('/v1/messages')).length, 1) // a IA ainda respondeu
+    assert((avisos[0] as any).body.subject.includes('80%'))
+  } finally {
+    f.restore()
+  }
+})
+
+Deno.test('teto de IA: em 100% avisa por email e a IA para sem chamar a API', async () => {
+  const f = stubFetch(message('{"x":"a"}'))
+  try {
+    await assertRejects(() => askClaude(fakeSb({ gastoHoje: 10.5, avisos: true }).sb, { workspace_id: 'ws', origem: 'agent', tier: 'sonnet', system: 's', user: 'u', schema }), Error, 'Limite diário de IA')
+    assertEquals(f.calls.filter((c) => c.url.endsWith('/v1/messages')).length, 0)
+    const avisos = resendCalls(f)
+    assertEquals(avisos.length, 1)
+    assert((avisos[0] as any).body.subject.includes('atingido'))
+  } finally {
+    f.restore()
+  }
+})
+
+Deno.test('teto de IA: abaixo de 80% não avisa, e sem aviso configurado a IA funciona do mesmo jeito', async () => {
+  const f = stubFetch(message('{"x":"a"}'))
+  try {
+    await askClaude(fakeSb({ gastoHoje: 5, avisos: true }).sb, { workspace_id: 'ws', origem: 'agent', tier: 'sonnet', system: 's', user: 'u', schema })
+    assertEquals(resendCalls(f).length, 0)
+    await askClaude(fakeSb({ gastoHoje: 9 }).sb, { workspace_id: 'ws', origem: 'agent', tier: 'sonnet', system: 's', user: 'u', schema }) // sem remetente/destinatários
+    assertEquals(resendCalls(f).length, 0)
   } finally {
     f.restore()
   }

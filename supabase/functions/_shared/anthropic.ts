@@ -1,7 +1,8 @@
 // deno-lint-ignore-file no-explicit-any
 import Anthropic from 'npm:@anthropic-ai/sdk@0.132.1'
 import { getCredentials } from './credentials.ts'
-import { gastoIaHoje, LIMITE_PADRAO_IA_USD } from './limites.ts'
+import { gastoIaHoje, inicioDoDiaBrt, LIMITE_PADRAO_IA_USD, nivelDoTeto } from './limites.ts'
+import { notificar } from './notify.ts'
 import type { SB } from './util.ts'
 
 // Haiku: triagem e classificação. Sonnet: conversação e briefing (decisão do projeto).
@@ -25,6 +26,26 @@ interface AskParams {
   effort?: 'low' | 'medium' | 'high'
 }
 
+/** Avisa por email (uma vez por dia e por nível) que o teto de IA chegou a 80% ou a 100%. Nunca derruba a chamada. */
+async function avisarTeto(sb: SB, workspace_id: string, nivel: 'alerta80' | 'bloqueado', gasto: number, teto: number) {
+  const bloqueado = nivel === 'bloqueado'
+  try {
+    await notificar(sb, workspace_id, {
+      tipo: 'teto_ia',
+      chave: `${nivel}:${inicioDoDiaBrt().toISOString().slice(0, 10)}`,
+      assunto: bloqueado ? 'Maestro: o teto diário de IA foi atingido' : 'Maestro: o gasto de IA chegou a 80% do teto de hoje',
+      titulo: bloqueado ? 'O agente parou por hoje: teto diário de IA atingido' : 'O gasto de IA de hoje chegou a 80% do teto',
+      linhas: [
+        `Gasto de hoje: US$ ${gasto.toFixed(2)} de US$ ${teto.toFixed(2)}.`,
+        bloqueado ? 'O agente volta amanhã, ou agora se você aumentar o teto em Setup → Integrações → Anthropic. O resto do Maestro segue funcionando.' : 'Ao chegar a 100% o agente para até o dia seguinte. Você pode aumentar o teto em Setup → Integrações → Anthropic.',
+      ],
+      link: '/setup',
+    })
+  } catch {
+    /* o aviso nunca pode impedir o funcionamento */
+  }
+}
+
 /**
  * Chama o Claude pedindo uma saída estruturada (JSON validado pelo schema) e registra o custo em custos_uso.
  * Não define temperature/top_p (rejeitados pelo Sonnet 5.5) nem desliga o thinking.
@@ -33,7 +54,9 @@ export async function askClaude<T>(sb: SB, p: AskParams): Promise<T> {
   const { api_key, limite_diario_usd } = await getCredentials(sb, p.workspace_id, 'anthropic')
   const teto = Number(limite_diario_usd) > 0 ? Number(limite_diario_usd) : LIMITE_PADRAO_IA_USD
   const gasto = await gastoIaHoje(sb, p.workspace_id)
-  if (gasto >= teto) throw new Error(`Limite diário de IA atingido (US$ ${gasto.toFixed(2)} de US$ ${teto.toFixed(2)}). Ajuste em Integrações → Anthropic.`)
+  const nivel = nivelDoTeto(gasto, teto)
+  if (nivel !== 'ok') await avisarTeto(sb, p.workspace_id, nivel, gasto, teto)
+  if (nivel === 'bloqueado') throw new Error(`Limite diário de IA atingido (US$ ${gasto.toFixed(2)} de US$ ${teto.toFixed(2)}). Ajuste em Integrações → Anthropic.`)
   const client = new Anthropic({ apiKey: api_key })
 
   const outputConfig: Record<string, unknown> = { format: { type: 'json_schema', schema: p.schema } }

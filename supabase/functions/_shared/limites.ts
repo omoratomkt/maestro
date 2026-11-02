@@ -12,6 +12,13 @@ const PROVEDORES: Record<string, string[]> = {
   linkedin: ['linkedin_expandi', 'linkedin_dripify'],
 }
 
+/** Onde o gasto está em relação ao teto: em 80% avisa, em 100% a IA para (o resto do sistema segue). */
+export function nivelDoTeto(gasto: number, teto: number): 'ok' | 'alerta80' | 'bloqueado' {
+  if (!(teto > 0)) return 'ok'
+  if (gasto >= teto) return 'bloqueado'
+  return gasto >= teto * 0.8 ? 'alerta80' : 'ok'
+}
+
 /** Meia-noite de Brasília (UTC−3, sem horário de verão) do dia de `now`, como instante UTC. */
 export function inicioDoDiaBrt(now = new Date()): Date {
   const OFFSET = 3 * 3600e3

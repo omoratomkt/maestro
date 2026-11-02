@@ -4,7 +4,7 @@
 import { getCredentials } from './credentials.ts'
 import { errMessage, type SB } from './util.ts'
 
-export type TipoNotificacao = 'lead_qualificado' | 'reuniao_agendada' | 'reuniao_cancelada' | 'aguarda_humano' | 'resumo_diario' | 'teste'
+export type TipoNotificacao = 'lead_qualificado' | 'reuniao_agendada' | 'reuniao_cancelada' | 'aguarda_humano' | 'resumo_diario' | 'teste' | 'teto_ia'
 
 export interface Aviso {
   tipo: TipoNotificacao

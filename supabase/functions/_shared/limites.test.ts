@@ -8,3 +8,13 @@ Deno.test('inicioDoDiaBrt: meia-noite de Brasília como instante UTC', () => {
   assertEquals(inicioDoDiaBrt(new Date('2026-10-08T03:00:00Z')).toISOString(), '2026-10-08T03:00:00.000Z')
   assertEquals(inicioDoDiaBrt(new Date('2026-10-08T20:00:00Z')).toISOString(), '2026-10-08T03:00:00.000Z')
 })
+
+Deno.test('nivelDoTeto: ok, alerta em 80% e bloqueio em 100%', async () => {
+  const { nivelDoTeto } = await import('./limites.ts')
+  assertEquals(nivelDoTeto(7.99, 10), 'ok')
+  assertEquals(nivelDoTeto(8, 10), 'alerta80')
+  assertEquals(nivelDoTeto(9.99, 10), 'alerta80')
+  assertEquals(nivelDoTeto(10, 10), 'bloqueado')
+  assertEquals(nivelDoTeto(50, 10), 'bloqueado')
+  assertEquals(nivelDoTeto(5, 0), 'ok') // sem teto válido, não bloqueia
+})
