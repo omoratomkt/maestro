@@ -59,6 +59,14 @@ export function nextBusinessSlot(hours: number, now = new Date()): Date {
   return new Date(b.getTime() + OFFSET)
 }
 
+/** Agora está dentro do horário comercial de envio (seg–sex, 9h às 18h, horário de Brasília)? */
+export function dentroDoHorarioComercial(now = new Date()): boolean {
+  const b = new Date(now.getTime() - 3 * 3600e3)
+  const dow = b.getUTCDay()
+  const h = b.getUTCHours()
+  return dow !== 0 && dow !== 6 && h >= 9 && h < 18
+}
+
 export function errMessage(e: unknown): string {
   return e instanceof Error ? e.message : String(e)
 }

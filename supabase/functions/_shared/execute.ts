@@ -3,7 +3,7 @@ import { sendMessage } from './channels.ts'
 import { upsertEstado } from './agent.ts'
 import { enviadosHoje, limiteDiario } from './limites.ts'
 import { carregarSupressoes, estaSuprimido } from './suppression.ts'
-import { errMessage, nextBusinessSlot, type SB } from './util.ts'
+import { dentroDoHorarioComercial, errMessage, nextBusinessSlot, type SB } from './util.ts'
 
 export interface ExecuteResult {
   ok: boolean
@@ -14,6 +14,8 @@ export interface ExecuteResult {
 
 /** Prefixo do erro de limite; o agent-loop reenvia essas ações automaticamente no dia seguinte. */
 export const ERRO_LIMITE = 'Limite diário'
+/** Prefixo da resposta de horário (não é gravado como erro): a ação segue aprovada e o agent-loop a reenvia na próxima janela comercial. */
+export const ERRO_HORARIO = 'Fora do horário comercial'
 
 const TENTATIVAS: Record<string, string> = {
   whatsapp: 'tentativas_whatsapp',
@@ -26,7 +28,7 @@ const TENTATIVAS: Record<string, string> = {
  * Envia uma ação aprovada (ou automática) pelo canal certo e registra tudo.
  * O claim em `executada_em` impede envio duplicado se duas execuções correrem ao mesmo tempo.
  */
-export async function executeAction(sb: SB, fila_id: string): Promise<ExecuteResult> {
+export async function executeAction(sb: SB, fila_id: string, relogio = new Date()): Promise<ExecuteResult> {
   const { data: claimed } = await sb
     .from('fila_acoes')
     .update({ executada_em: new Date().toISOString(), erro_execucao: null })
@@ -54,6 +56,12 @@ export async function executeAction(sb: SB, fila_id: string): Promise<ExecuteRes
         await sb.from('prospects').update({ status: 'descartado', atualizado_em: new Date().toISOString() }).eq('id', p.id)
         await upsertEstado(sb, p.id, { aguardando: 'nenhum', proxima_acao_em: null })
         return { ok: false, fila_id, detalhe: 'contato na lista de supressão: envio cancelado', canal: claimed.canal }
+      }
+      // Mensagem a pessoa real só sai em horário comercial; a ação fica aprovada e o agent-loop a envia na próxima janela.
+      // Não é falha: devolve o claim sem registrar erro, então a ação continua aprovada e o agent-loop a pega na próxima janela.
+      if (!dentroDoHorarioComercial(relogio)) {
+        await sb.from('fila_acoes').update({ executada_em: null, erro_execucao: null }).eq('id', fila_id)
+        return { ok: false, fila_id, detalhe: `${ERRO_HORARIO}: a ação será enviada no próximo horário comercial (seg a sex, 9h às 18h, Brasília).`, canal: claimed.canal }
       }
       const [limite, usados] = await Promise.all([limiteDiario(sb, p.workspace_id, claimed.canal), enviadosHoje(sb, p.workspace_id, claimed.canal)])
       if (usados >= limite) return await fail(`${ERRO_LIMITE} de envios do canal (${limite}) atingido. A ação será enviada automaticamente amanhã.`)
