@@ -2,6 +2,7 @@
 // Tratamento comum de mensagens recebidas (usado pelos 4 webhooks).
 import { askClaude } from './anthropic.ts'
 import { proposeNextAction, upsertEstado } from './agent.ts'
+import { ehOptOut } from './optout.ts'
 import { qualifyProspect } from './qualify.ts'
 import { notificar } from './notify.ts'
 import { suprimir } from './suppression.ts'
@@ -59,6 +60,14 @@ async function findProspect(sb: SB, m: InboundMessage): Promise<any | null> {
   return data?.[0] ?? null
 }
 
+/** Pediu para parar: entra na lista de supressão do workspace e nada mais é proposto nem enviado para esta pessoa. */
+async function aplicarOptOut(sb: SB, p: any) {
+  await suprimir(sb, p.workspace_id, p, 'Pediu para não receber mais mensagens', 'resposta')
+  await sb.from('prospects').update({ status: 'descartado', atualizado_em: new Date().toISOString() }).eq('id', p.id)
+  await sb.from('fila_acoes').update({ status: 'cancelada' }).eq('prospect_id', p.id).in('status', ['pendente', 'aprovada'])
+  await upsertEstado(sb, p.id, { aguardando: 'nenhum', proxima_acao_em: null, contexto_resumo: 'Pediu para não ser contatado: está na lista de supressão.' })
+}
+
 /** Registra a mensagem, triagem (Haiku), qualificação e proposta do agente — tudo em tempo real. */
 export async function handleInbound(sb: SB, m: InboundMessage): Promise<InboundResult> {
   const p = await findProspect(sb, m)
@@ -96,6 +105,17 @@ export async function handleInbound(sb: SB, m: InboundMessage): Promise<InboundR
   await upsertEstado(sb, p.id, { aguardando: 'nenhum', proxima_acao_em: null })
 
   const result: InboundResult = { encontrado: true }
+
+  // LGPD: o pedido para parar é reconhecido por código ANTES de qualquer chamada ao modelo. Se a triagem falhar,
+  // o teto de IA estourar ou o modelo errar, o pedido não pode se perder. A triagem abaixo é a segunda barreira.
+  if (ehOptOut(m.texto)) {
+    await aplicarOptOut(sb, p)
+    await sb.from('prospect_interacoes').update({ metadata: { ...(m.metadata ?? {}), message_id: m.message_id, triagem: { intencao: 'opt_out', resumo: 'reconhecido por palavra-chave' } } }).eq('id', row.id)
+    result.triagem = 'opt_out'
+    result.proximo = 'suprimido'
+    return result
+  }
+
   try {
     // 1) Triagem barata (Haiku)
     const t = await askClaude<{ intencao: Intencao; resumo: string }>(sb, {
@@ -112,11 +132,7 @@ export async function handleInbound(sb: SB, m: InboundMessage): Promise<InboundR
     await sb.from('prospect_interacoes').update({ metadata: { ...(m.metadata ?? {}), message_id: m.message_id, triagem: t } }).eq('id', row.id)
 
     if (t.intencao === 'opt_out') {
-      // LGPD: pediu para parar. Entra na lista de supressão do workspace e nada mais é proposto para esta pessoa.
-      await suprimir(sb, p.workspace_id, p, 'Pediu para não receber mais mensagens', 'resposta')
-      await sb.from('prospects').update({ status: 'descartado', atualizado_em: new Date().toISOString() }).eq('id', p.id)
-      await sb.from('fila_acoes').update({ status: 'cancelada' }).eq('prospect_id', p.id).in('status', ['pendente', 'aprovada'])
-      await upsertEstado(sb, p.id, { aguardando: 'nenhum', proxima_acao_em: null, contexto_resumo: 'Pediu para não ser contatado: está na lista de supressão.' })
+      await aplicarOptOut(sb, p)
       result.proximo = 'suprimido'
       return result
     }
