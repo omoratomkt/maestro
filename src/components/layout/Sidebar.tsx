@@ -1,5 +1,6 @@
 import {
   BarChart3,
+  Bot,
   Building2,
   HelpCircle,
   Inbox,
@@ -47,6 +48,7 @@ const operationalNav: NavItem[] = [
   { to: '/inbox', label: 'Caixa de Entrada', icon: Inbox },
   { to: '/campanhas', label: 'Campanhas', icon: Megaphone },
   { to: '/automacoes', label: 'Automações', icon: Zap },
+  { to: '/agentes', label: 'Agentes', icon: Bot },
   { to: '/metricas', label: 'Métricas', icon: BarChart3 },
   { to: '/ajuda', label: 'Ajuda', icon: HelpCircle },
 ]

@@ -40,6 +40,10 @@ INSERT INTO supressoes (workspace_id, tipo, valor) VALUES
 INSERT INTO source_log (workspace_id, campanha_id, fonte, consulta) VALUES
   ('a0000000-0000-0000-0000-00000000000a', 'a0000000-0000-0000-0000-0000000000ca', 'x', 'q'), ('b0000000-0000-0000-0000-00000000000b', 'b0000000-0000-0000-0000-0000000000cb', 'x', 'q');
 INSERT INTO ciclo_log (resumo) VALUES ('{}');
+INSERT INTO ia_chamadas_log (workspace_id, papel, resultado) VALUES
+  ('a0000000-0000-0000-0000-00000000000a', 'agent', 'ok'), ('b0000000-0000-0000-0000-00000000000b', 'agent', 'ok');
+INSERT INTO agente_prompts (workspace_id, papel, instrucoes) VALUES
+  ('a0000000-0000-0000-0000-00000000000a', 'agente', 'instrucao A'), ('b0000000-0000-0000-0000-00000000000b', 'agente', 'instrucao B');
 
 CREATE TEMP TABLE _rls (ordem SERIAL, quem TEXT, teste TEXT, esperado TEXT, obtido TEXT, ok BOOLEAN);
 GRANT ALL ON _rls TO authenticated, anon;
@@ -65,7 +69,7 @@ BEGIN
   EXECUTE 'SET LOCAL ROLE authenticated';
   PERFORM set_config('request.jwt.claims', A, true);
 
-  FOREACH t IN ARRAY ARRAY['workspaces','campanhas','prospects','prospect_interacoes','prospect_estado','fila_acoes','leads_qualificados','fluxos_automaticos','custos_uso','supressoes','source_log'] LOOP
+  FOREACH t IN ARRAY ARRAY['workspaces','campanhas','prospects','prospect_interacoes','prospect_estado','fila_acoes','leads_qualificados','fluxos_automaticos','custos_uso','supressoes','source_log','ia_chamadas_log','agente_prompts','agente_prompt_versoes'] LOOP
     EXECUTE format('SELECT count(*) FROM %I', t) INTO n;
     r := r || jsonb_build_object('quem','operador A','teste','vê só o próprio em '||t,'esperado','1','obtido',n::text,'ok',n = 1);
   END LOOP;
@@ -98,6 +102,15 @@ BEGIN
   r := r || jsonb_build_object('quem','operador A','teste','operador não vincula usuários','esperado','erro','obtido',CASE WHEN falhou THEN 'erro' ELSE 'passou' END,'ok',falhou);
   falhou := false; BEGIN INSERT INTO custos_uso (workspace_id, origem, modelo) VALUES (WA, 'agent', 'm'); EXCEPTION WHEN OTHERS THEN falhou := true; END;
   r := r || jsonb_build_object('quem','operador A','teste','operador não grava custos (só as funções gravam)','esperado','erro','obtido',CASE WHEN falhou THEN 'erro' ELSE 'passou' END,'ok',falhou);
+  SELECT count(*) INTO n FROM plataforma_config;  r := r || jsonb_build_object('quem','operador A','teste','NÃO lê o interruptor geral da IA','esperado','0','obtido',n::text,'ok',n = 0);
+  falhou := false; BEGIN UPDATE plataforma_config SET valor = '{"pausada": true}'; GET DIAGNOSTICS n = ROW_COUNT; falhou := (n = 0); EXCEPTION WHEN OTHERS THEN falhou := true; END;
+  r := r || jsonb_build_object('quem','operador A','teste','operador não liga o interruptor geral da IA','esperado','0 linhas','obtido',CASE WHEN falhou THEN 'bloqueado' ELSE 'passou' END,'ok',falhou);
+  falhou := false; BEGIN INSERT INTO ia_chamadas_log (workspace_id, papel, resultado) VALUES (WA, 'agent', 'ok'); EXCEPTION WHEN OTHERS THEN falhou := true; END;
+  r := r || jsonb_build_object('quem','operador A','teste','operador não grava o registro de chamadas de IA (só as funções)','esperado','erro','obtido',CASE WHEN falhou THEN 'erro' ELSE 'passou' END,'ok',falhou);
+  falhou := false; BEGIN UPDATE agente_prompts SET instrucoes = 'hack' WHERE workspace_id = WA; GET DIAGNOSTICS n = ROW_COUNT; falhou := (n = 0); EXCEPTION WHEN OTHERS THEN falhou := true; END;
+  r := r || jsonb_build_object('quem','operador A','teste','operador não edita as instruções do agente (só o super_admin)','esperado','0 linhas','obtido',CASE WHEN falhou THEN 'bloqueado' ELSE 'passou' END,'ok',falhou);
+  falhou := false; BEGIN INSERT INTO agente_prompt_versoes (workspace_id, papel, instrucoes) VALUES (WA, 'agente', 'x'); EXCEPTION WHEN OTHERS THEN falhou := true; END;
+  r := r || jsonb_build_object('quem','operador A','teste','operador não grava versões de prompt (só o gatilho)','esperado','erro','obtido',CASE WHEN falhou THEN 'erro' ELSE 'passou' END,'ok',falhou);
 
   ------------------------------------------------------------------ operador do workspace B
   EXECUTE 'RESET ROLE'; EXECUTE 'SET LOCAL ROLE authenticated';
@@ -109,6 +122,9 @@ BEGIN
   r := r || jsonb_build_object('quem','operador B','teste','não lê notificacoes_log (só as funções)','esperado','0 linhas','obtido',CASE WHEN falhou THEN 'sem permissão' ELSE n::text END,'ok',(falhou OR n = 0));
   SELECT count(*) INTO n FROM prospect_alerts WHERE workspace_id = WA; r := r || jsonb_build_object('quem','operador B','teste','não vê alertas de A','esperado','0','obtido',n::text,'ok',n = 0);
   SELECT count(*) INTO n FROM campanha_metricas WHERE workspace_id = WA; r := r || jsonb_build_object('quem','operador B','teste','não vê métricas de A','esperado','0','obtido',n::text,'ok',n = 0);
+  SELECT count(*) INTO n FROM ia_chamadas_log WHERE workspace_id = WA; r := r || jsonb_build_object('quem','operador B','teste','não vê o registro de IA de A','esperado','0','obtido',n::text,'ok',n = 0);
+  SELECT count(*) INTO n FROM agente_prompts WHERE workspace_id = WA; r := r || jsonb_build_object('quem','operador B','teste','não vê as instruções do agente de A','esperado','0','obtido',n::text,'ok',n = 0);
+  SELECT count(*) INTO n FROM agente_prompt_versoes WHERE workspace_id = WA; r := r || jsonb_build_object('quem','operador B','teste','não vê as versões de prompt de A','esperado','0','obtido',n::text,'ok',n = 0);
 
   ------------------------------------------------------------------ super_admin
   EXECUTE 'RESET ROLE'; EXECUTE 'SET LOCAL ROLE authenticated';
@@ -118,12 +134,18 @@ BEGIN
   falhou := false; BEGIN UPDATE integracoes SET config = '{}' WHERE workspace_id = WA; GET DIAGNOSTICS n = ROW_COUNT; falhou := (n = 0); EXCEPTION WHEN OTHERS THEN falhou := true; END;
   r := r || jsonb_build_object('quem','super_admin','teste','não altera credenciais direto (só pela função que criptografa)','esperado','0 linhas','obtido',CASE WHEN falhou THEN 'bloqueado' ELSE 'passou' END,'ok',falhou);
   SELECT count(*) INTO n FROM ciclo_log;          r := r || jsonb_build_object('quem','super_admin','teste','lê o log global do ciclo','esperado','1+','obtido',n::text,'ok',n >= 1);
+  SELECT count(*) INTO n FROM plataforma_config WHERE chave = 'ia_pausada'; r := r || jsonb_build_object('quem','super_admin','teste','lê o interruptor geral da IA','esperado','1','obtido',n::text,'ok',n = 1);
+  UPDATE plataforma_config SET valor = '{"pausada": true}' WHERE chave = 'ia_pausada'; GET DIAGNOSTICS n = ROW_COUNT;
+  r := r || jsonb_build_object('quem','super_admin','teste','liga o interruptor geral da IA','esperado','1','obtido',n::text,'ok',n = 1);
+  UPDATE agente_prompts SET instrucoes = 'instrucao A v2' WHERE workspace_id = WA; GET DIAGNOSTICS n = ROW_COUNT;
+  r := r || jsonb_build_object('quem','super_admin','teste','edita as instruções do agente','esperado','1','obtido',n::text,'ok',n = 1);
+  SELECT count(*) INTO n FROM agente_prompt_versoes WHERE workspace_id = WA; r := r || jsonb_build_object('quem','super_admin','teste','a edição gerou uma versão nova (histórico por gatilho)','esperado','2','obtido',n::text,'ok',n = 2);
   SELECT is_super_admin()::int INTO n;            r := r || jsonb_build_object('quem','super_admin','teste','is_super_admin() é verdadeiro','esperado','1','obtido',n::text,'ok',n = 1);
 
   ------------------------------------------------------------------ anônimo (chave anon, sem login)
   EXECUTE 'RESET ROLE'; EXECUTE 'SET LOCAL ROLE anon';
   PERFORM set_config('request.jwt.claims', '{"role":"anon"}', true);
-  FOREACH t IN ARRAY ARRAY['workspaces','workspace_usuarios','playbooks','campanhas','prospects','prospect_interacoes','prospect_estado','fila_acoes','fluxos_automaticos','leads_qualificados','integracoes','custos_uso','supressoes','source_log','ciclo_log','prospect_alerts','campanha_metricas','notificacoes_log'] LOOP
+  FOREACH t IN ARRAY ARRAY['workspaces','workspace_usuarios','playbooks','campanhas','prospects','prospect_interacoes','prospect_estado','fila_acoes','fluxos_automaticos','leads_qualificados','integracoes','custos_uso','supressoes','source_log','ciclo_log','prospect_alerts','campanha_metricas','notificacoes_log','plataforma_config','ia_chamadas_log','agente_prompts','agente_prompt_versoes'] LOOP
     falhou := false; n := 0;
     BEGIN EXECUTE format('SELECT count(*) FROM %I', t) INTO n; EXCEPTION WHEN insufficient_privilege THEN falhou := true; END;
     r := r || jsonb_build_object('quem','anônimo','teste','não lê '||t,'esperado','0 linhas','obtido',CASE WHEN falhou THEN 'sem permissão' ELSE n::text END,'ok',(falhou OR n = 0));

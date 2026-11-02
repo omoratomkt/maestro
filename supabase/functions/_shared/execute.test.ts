@@ -41,3 +41,19 @@ Deno.test('envio de demonstração não depende do horário', async () => {
   assertEquals(r.ok, true)
   assert(chamadas.some((c) => c.tabela === 'fila_acoes' && c.op === 'update' && c.args[0].status === 'executada'))
 })
+
+Deno.test('interruptor geral da IA: o envio automático fica parado, o aprovado por uma pessoa segue', async () => {
+  const pausada = [{ valor: { pausada: true } }]
+  // automático (veio de um fluxo): não sai e o claim é devolvido sem erro
+  const auto = fakeSb({ fila_acoes: [{ ...acao, fluxo_automatico_id: 'fx1' }], prospects: [prospect], campanhas: [{ canais: ['whatsapp_evolution'] }], plataforma_config: pausada })
+  const r1 = await executeAction(auto.sb, 'f1', utc('2026-11-02T15:00:00'))
+  assertEquals(r1.ok, false)
+  assert(r1.detalhe.includes('IA pausada'), r1.detalhe)
+  assert(!auto.chamadas.some((c) => c.tabela === 'prospect_interacoes' && c.op === 'insert'))
+  assertEquals(auto.chamadas.filter((c) => c.tabela === 'fila_acoes' && c.op === 'update').pop()?.args[0], { executada_em: null, erro_execucao: null })
+
+  // aprovado por uma pessoa (sem fluxo): o interruptor não o segura (aqui, demonstração, para não chamar canal algum)
+  const humano = fakeSb({ fila_acoes: [acao], prospects: [{ ...prospect, fonte: 'demo' }], campanhas: [{ canais: ['whatsapp_evolution'] }], prospect_estado: [{}], plataforma_config: pausada })
+  const r2 = await executeAction(humano.sb, 'f1', utc('2026-11-02T15:00:00'))
+  assertEquals(r2.ok, true)
+})

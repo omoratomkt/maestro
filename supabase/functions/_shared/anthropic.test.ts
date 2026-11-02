@@ -3,8 +3,9 @@ import { assert, assertEquals, assertRejects } from 'jsr:@std/assert@1'
 import { askClaude } from './anthropic.ts'
 
 /** Banco de mentira: só o que askClaude usa (integracoes.maybeSingle e custos_uso.insert). */
-function fakeSb(opts: { gastoHoje?: number; limite?: number; avisos?: boolean } = {}) {
+function fakeSb(opts: { gastoHoje?: number; limite?: number; avisos?: boolean; pausada?: boolean } = {}) {
   const custos: any[] = []
+  const logs: any[] = []
   const sb: any = {
     from(table: string) {
       const q: any = {
@@ -18,18 +19,19 @@ function fakeSb(opts: { gastoHoje?: number; limite?: number; avisos?: boolean } 
         limit: () => Promise.resolve({ data: table === 'custos_uso' ? [{ custo_usd: opts.gastoHoje ?? 0 }] : null, error: null }),
         maybeSingle: () =>
           Promise.resolve({
-            data: table === 'integracoes' ? { ativo: true, config: { api_key: 'sk-test', ...(opts.limite ? { limite_diario_usd: opts.limite } : {}), ...(opts.avisos ? { remetente: 'a@b.com', destinatarios: 'op@b.com' } : {}) } } : null,
+            data: table === 'plataforma_config' ? { valor: { pausada: opts.pausada === true } } : table === 'integracoes' ? { ativo: true, config: { api_key: 'sk-test', ...(opts.limite ? { limite_diario_usd: opts.limite } : {}), ...(opts.avisos ? { remetente: 'a@b.com', destinatarios: 'op@b.com' } : {}) } } : null,
             error: null,
           }),
         insert: (row: any) => {
-          custos.push(row)
+          if (table === 'ia_chamadas_log') logs.push(row)
+          else custos.push(row)
           return Promise.resolve({ error: null })
         },
       }
       return q
     },
   }
-  return { sb, custos }
+  return { sb, custos, logs }
 }
 
 function stubFetch(response: unknown, status = 200) {
@@ -161,6 +163,53 @@ Deno.test('teto de IA: abaixo de 80% não avisa, e sem aviso configurado a IA fu
     assertEquals(resendCalls(f).length, 0)
     await askClaude(fakeSb({ gastoHoje: 9 }).sb, { workspace_id: 'ws', origem: 'agent', tier: 'sonnet', system: 's', user: 'u', schema }) // sem remetente/destinatários
     assertEquals(resendCalls(f).length, 0)
+  } finally {
+    f.restore()
+  }
+})
+
+Deno.test('registro por chamada: sucesso guarda papel, modelo, tokens, custo, tempo e texto mascarado', async () => {
+  const { sb, logs } = fakeSb()
+  const f = stubFetch(message('{"x":"resposta com sk-ant-api03-EXEMPLOEXEMPLO"}'))
+  try {
+    await askClaude(sb, { workspace_id: 'ws', prospect_id: 'p1', origem: 'triage', tier: 'haiku', system: 's', user: 'mensagem com senha: valorinventado', schema })
+    assertEquals(logs.length, 1)
+    assertEquals(logs[0].resultado, 'ok')
+    assertEquals(logs[0].papel, 'triage')
+    assertEquals(logs[0].modelo, 'claude-haiku-4-5')
+    assertEquals(logs[0].tokens_in, 1000)
+    assert(typeof logs[0].tempo_ms === 'number')
+    // nenhum segredo chega ao registro
+    assertEquals(String(logs[0].entrada).includes('valorinventado'), false)
+    assertEquals(String(logs[0].saida).includes('sk-ant'), false)
+  } finally {
+    f.restore()
+  }
+})
+
+Deno.test('interruptor geral: com a IA pausada nada é chamado e a tentativa fica registrada', async () => {
+  const { sb, logs } = fakeSb({ pausada: true })
+  const f = stubFetch(message('{"x":"a"}'))
+  try {
+    await assertRejects(() => askClaude(sb, { workspace_id: 'ws', origem: 'agent', tier: 'sonnet', system: 's', user: 'u', schema }), Error, 'pausada pelo administrador')
+    assertEquals(f.calls.length, 0)
+    assertEquals(logs[0].resultado, 'pausada')
+  } finally {
+    f.restore()
+  }
+})
+
+Deno.test('registro por chamada: teto atingido e erro do provedor ficam registrados com o resultado certo', async () => {
+  const f = stubFetch({ type: 'error', error: { type: 'authentication_error', message: 'invalid x-api-key' } }, 401)
+  try {
+    const teto = fakeSb({ gastoHoje: 11 })
+    await assertRejects(() => askClaude(teto.sb, { workspace_id: 'ws', origem: 'agent', tier: 'sonnet', system: 's', user: 'u', schema }), Error, 'Limite diário')
+    assertEquals(teto.logs[0].resultado, 'bloqueado')
+
+    const erro = fakeSb()
+    await assertRejects(() => askClaude(erro.sb, { workspace_id: 'ws', origem: 'agent', tier: 'sonnet', system: 's', user: 'u', schema }))
+    assertEquals(erro.logs[0].resultado, 'erro')
+    assert(String(erro.logs[0].erro).length > 0)
   } finally {
     f.restore()
   }

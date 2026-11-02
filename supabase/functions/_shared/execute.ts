@@ -1,5 +1,6 @@
 // deno-lint-ignore-file no-explicit-any
 import { sendMessage } from './channels.ts'
+import { iaPausada } from './ia_controle.ts'
 import { upsertEstado } from './agent.ts'
 import { enviadosHoje, limiteDiario } from './limites.ts'
 import { carregarSupressoes, estaSuprimido } from './suppression.ts'
@@ -38,6 +39,12 @@ export async function executeAction(sb: SB, fila_id: string, relogio = new Date(
     .select('*')
     .maybeSingle()
   if (!claimed) return { ok: false, fila_id, detalhe: 'ação não está aprovada, ou já foi executada' }
+
+  // Interruptor geral da IA: o que sai sozinho (fluxo automático) fica parado. O envio que uma pessoa aprovou segue.
+  if (claimed.fluxo_automatico_id && (await iaPausada(sb))) {
+    await sb.from('fila_acoes').update({ executada_em: null, erro_execucao: null }).eq('id', fila_id)
+    return { ok: false, fila_id, detalhe: 'IA pausada pelo administrador: o envio automático volta quando ela for religada.', canal: claimed.canal }
+  }
 
   const fail = async (msg: string): Promise<ExecuteResult> => {
     await sb.from('fila_acoes').update({ executada_em: null, erro_execucao: msg.slice(0, 500) }).eq('id', fila_id)

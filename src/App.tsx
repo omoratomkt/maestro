@@ -3,6 +3,7 @@ import { Toaster } from 'sonner'
 import { AppLayout } from '@/components/layout/AppLayout'
 import { RequireAuth, RequireSuperAdmin } from '@/components/layout/RouteGuards'
 import { AuthProvider } from '@/lib/auth'
+import Agents from '@/pages/Agents'
 import Automations from '@/pages/Automations'
 import Campaigns from '@/pages/Campaigns'
 import Dashboard from '@/pages/Dashboard'
@@ -34,6 +35,7 @@ export default function App() {
               <Route path="inbox" element={<Inbox />} />
               <Route path="campanhas" element={<Campaigns />} />
               <Route path="automacoes" element={<Automations />} />
+              <Route path="agentes" element={<Agents />} />
               <Route path="metricas" element={<Metrics />} />
               <Route path="ajuda" element={<Help />} />
               <Route element={<RequireSuperAdmin />}>

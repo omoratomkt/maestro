@@ -1,12 +1,14 @@
 // deno-lint-ignore-file no-explicit-any
 import Anthropic from 'npm:@anthropic-ai/sdk@0.132.1'
 import { getCredentials } from './credentials.ts'
+import { iaPausada, registrarChamada } from './ia_controle.ts'
 import { gastoIaHoje, inicioDoDiaBrt, LIMITE_PADRAO_IA_USD, nivelDoTeto } from './limites.ts'
 import { notificar } from './notify.ts'
+import { resumirParaLog } from './segredos.ts'
 import type { SB } from './util.ts'
 
 // Haiku: triagem e classificação. Sonnet: conversação e briefing (decisão do projeto).
-const MODELS = { haiku: 'claude-haiku-4-5', sonnet: 'claude-sonnet-5-5' } as const
+export const MODELS = { haiku: 'claude-haiku-4-5', sonnet: 'claude-sonnet-5-5' } as const
 // US$ por milhão de tokens [entrada, saída] — tabela de preços da Anthropic em 2026-09.
 const PRICE: Record<keyof typeof MODELS, [number, number]> = { haiku: [1, 5], sonnet: [2, 10] }
 
@@ -50,13 +52,32 @@ async function avisarTeto(sb: SB, workspace_id: string, nivel: 'alerta80' | 'blo
  * Chama o Claude pedindo uma saída estruturada (JSON validado pelo schema) e registra o custo em custos_uso.
  * Não define temperature/top_p (rejeitados pelo Sonnet 5.5) nem desliga o thinking.
  */
+export class IaPausadaError extends Error {}
+export class TetoIaError extends Error {}
+
 export async function askClaude<T>(sb: SB, p: AskParams): Promise<T> {
+  const inicio = Date.now()
+  const base = { workspace_id: p.workspace_id, prospect_id: p.prospect_id ?? null, papel: p.origem, modelo: MODELS[p.tier], entrada: resumirParaLog(p.user) }
+  try {
+    const r = await chamar<T>(sb, p)
+    await registrarChamada(sb, { ...base, saida: resumirParaLog(r.texto), tokens_in: r.tokensIn, tokens_out: r.tokensOut, custo_usd: r.custo, tempo_ms: Date.now() - inicio, resultado: 'ok' })
+    return r.saida
+  } catch (e) {
+    const resultado = e instanceof IaPausadaError ? 'pausada' : e instanceof TetoIaError ? 'bloqueado' : 'erro'
+    await registrarChamada(sb, { ...base, tempo_ms: Date.now() - inicio, resultado, erro: resumirParaLog(e instanceof Error ? e.message : String(e), 500) })
+    throw e
+  }
+}
+
+async function chamar<T>(sb: SB, p: AskParams): Promise<{ saida: T; texto: string; tokensIn: number; tokensOut: number; custo: number }> {
+  // Interruptor geral: o administrador pausou toda a IA da plataforma. Só o painel e o envio humano seguem.
+  if (await iaPausada(sb)) throw new IaPausadaError('A IA está pausada pelo administrador da plataforma.')
   const { api_key, limite_diario_usd } = await getCredentials(sb, p.workspace_id, 'anthropic')
   const teto = Number(limite_diario_usd) > 0 ? Number(limite_diario_usd) : LIMITE_PADRAO_IA_USD
   const gasto = await gastoIaHoje(sb, p.workspace_id)
   const nivel = nivelDoTeto(gasto, teto)
   if (nivel !== 'ok') await avisarTeto(sb, p.workspace_id, nivel, gasto, teto)
-  if (nivel === 'bloqueado') throw new Error(`Limite diário de IA atingido (US$ ${gasto.toFixed(2)} de US$ ${teto.toFixed(2)}). Ajuste em Integrações → Anthropic.`)
+  if (nivel === 'bloqueado') throw new TetoIaError(`Limite diário de IA atingido (US$ ${gasto.toFixed(2)} de US$ ${teto.toFixed(2)}). Ajuste em Integrações → Anthropic.`)
   const client = new Anthropic({ apiKey: api_key })
 
   const outputConfig: Record<string, unknown> = { format: { type: 'json_schema', schema: p.schema } }
@@ -93,5 +114,5 @@ export async function askClaude<T>(sb: SB, p: AskParams): Promise<T> {
   if (res.stop_reason === 'max_tokens') throw new Error('Resposta do modelo truncada (max_tokens)')
   const text = res.content.find((b: any) => b.type === 'text') as { text: string } | undefined
   if (!text) throw new Error('Resposta do modelo sem texto')
-  return JSON.parse(text.text) as T
+  return { saida: JSON.parse(text.text) as T, texto: text.text, tokensIn, tokensOut, custo }
 }

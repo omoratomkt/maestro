@@ -34,3 +34,13 @@ Deno.test('linksNaoAutorizados: o endereço completo conta (mesmo site, outra p�
   assertEquals(linksNaoAutorizados('https://cal.com/morato/30min#horarios', cal), [])
   assertEquals(linksNaoAutorizados('https://cal.com/morato', cal), ['https://cal.com/morato'])
 })
+
+Deno.test('prompt do agente: instruções do operador entram antes da tarefa e não substituem as regras', () => {
+  const p = personaPrompt(campanha, ['whatsapp'], null, 'Sempre cite que atendemos clínicas de São Paulo.')
+  assertStringIncludes(p, 'Sempre cite que atendemos clínicas de São Paulo.')
+  assertStringIncludes(p, 'as regras abaixo valem sempre e prevalecem')
+  assert(p.indexOf('Sempre cite') < p.indexOf('Sua tarefa:'))
+  assert(p.indexOf('Sempre cite') < p.indexOf('SEGURANÇA'))
+  // sem instruções, o prompt é o de antes
+  assert(!personaPrompt(campanha, ['whatsapp'], null).includes('Instruções adicionais do operador'))
+})

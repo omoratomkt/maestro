@@ -13,6 +13,7 @@ import { proposeNextAction } from '../_shared/agent.ts'
 import { enrichProspect } from '../_shared/enrich.ts'
 import { ERRO_LIMITE, executeAction } from '../_shared/execute.ts'
 import { enviarResumosDiarios, snapshotMetricas } from '../_shared/rotinas.ts'
+import { iaPausada } from '../_shared/ia_controle.ts'
 import { runSources } from '../_shared/sources.ts'
 import { corsHeaders, errMessage, isCronAuthorized, json, readJson, serviceClient } from '../_shared/util.ts'
 
@@ -34,7 +35,9 @@ Deno.serve(async (req) => {
   const started = Date.now()
   const timeLeft = () => TIME_BUDGET_MS - (Date.now() - started) > 0
   const sb = serviceClient()
-  const report: Record<string, any> = { followup, expiradas: 0, buscas: [], enriquecidos: [], enviadas: [], decisoes: [], erros: [] }
+  // Interruptor geral: com a IA pausada o ciclo não enriquece (usa IA) nem decide, e não envia o que é automático.
+  const pausada = await iaPausada(sb)
+  const report: Record<string, any> = { ia_pausada: pausada, followup, expiradas: 0, buscas: [], enriquecidos: [], enviadas: [], decisoes: [], erros: [] }
   const nowIso = () => new Date().toISOString()
 
   // 1) Expirar pendentes vencidas
@@ -74,7 +77,7 @@ Deno.serve(async (req) => {
 
   // 2) Enriquecer novos (campanhas ativas)
   const idsAtivas = (ativas ?? []).map((c: any) => c.id)
-  if (idsAtivas.length) {
+  if (idsAtivas.length && !pausada) {
     const { data: novos } = await sb
       .from('prospects')
       .select('id')
@@ -98,13 +101,15 @@ Deno.serve(async (req) => {
   }
 
   // 3) Enviar aprovadas pendentes de envio (sem erro anterior; reenvios são manuais)
-  const { data: aprovadas } = await sb
+  let qAprovadas = sb
     .from('fila_acoes')
     .select('id')
     .eq('status', 'aprovada')
     .is('executada_em', null)
     .or(`erro_execucao.is.null,erro_execucao.like.${ERRO_LIMITE}*`)
     .limit(20)
+  if (pausada) qAprovadas = qAprovadas.is('fluxo_automatico_id', null)
+  const { data: aprovadas } = await qAprovadas
   for (const a of aprovadas ?? []) {
     if (!timeLeft()) break
     const r = await executeAction(sb, a.id)
@@ -113,7 +118,7 @@ Deno.serve(async (req) => {
   }
 
   // 4) Decisões do agente
-  const { data: devidos } = await sb
+  const { data: devidos } = pausada ? { data: [] as any[] } : await sb
     .from('prospect_estado')
     .select('id, prospect_id, proxima_acao_em, aguardando')
     .not('proxima_acao_em', 'is', null)

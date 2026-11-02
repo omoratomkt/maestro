@@ -14,6 +14,75 @@ export type Database = {
   }
   public: {
     Tables: {
+      agente_prompt_versoes: {
+        Row: { autor_id: string | null; criado_em: string; id: string; instrucoes: string; papel: string; workspace_id: string }
+        Insert: { autor_id?: string | null; criado_em?: string; id?: string; instrucoes: string; papel: string; workspace_id: string }
+        Update: { autor_id?: string | null; criado_em?: string; id?: string; instrucoes?: string; papel?: string; workspace_id?: string }
+        Relationships: []
+      }
+      agente_prompts: {
+        Row: { atualizado_em: string; atualizado_por: string | null; id: string; instrucoes: string; papel: string; workspace_id: string }
+        Insert: { atualizado_em?: string; atualizado_por?: string | null; id?: string; instrucoes: string; papel: string; workspace_id: string }
+        Update: { atualizado_em?: string; atualizado_por?: string | null; id?: string; instrucoes?: string; papel?: string; workspace_id?: string }
+        Relationships: []
+      }
+      ia_chamadas_log: {
+        Row: {
+          criado_em: string
+          custo_usd: number | null
+          entrada: string | null
+          erro: string | null
+          id: string
+          modelo: string | null
+          papel: string
+          prospect_id: string | null
+          resultado: string
+          saida: string | null
+          tempo_ms: number | null
+          tokens_in: number | null
+          tokens_out: number | null
+          workspace_id: string
+        }
+        Insert: {
+          criado_em?: string
+          custo_usd?: number | null
+          entrada?: string | null
+          erro?: string | null
+          id?: string
+          modelo?: string | null
+          papel: string
+          prospect_id?: string | null
+          resultado: string
+          saida?: string | null
+          tempo_ms?: number | null
+          tokens_in?: number | null
+          tokens_out?: number | null
+          workspace_id: string
+        }
+        Update: {
+          criado_em?: string
+          custo_usd?: number | null
+          entrada?: string | null
+          erro?: string | null
+          id?: string
+          modelo?: string | null
+          papel?: string
+          prospect_id?: string | null
+          resultado?: string
+          saida?: string | null
+          tempo_ms?: number | null
+          tokens_in?: number | null
+          tokens_out?: number | null
+          workspace_id?: string
+        }
+        Relationships: []
+      }
+      plataforma_config: {
+        Row: { atualizado_em: string; atualizado_por: string | null; chave: string; valor: Json }
+        Insert: { atualizado_em?: string; atualizado_por?: string | null; chave: string; valor?: Json }
+        Update: { atualizado_em?: string; atualizado_por?: string | null; chave?: string; valor?: Json }
+        Relationships: []
+      }
       campanha_metricas: {
         Row: {
           campanha_id: string
