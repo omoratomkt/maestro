@@ -77,7 +77,7 @@ jobs:
         with:
           version: latest
       - run: supabase init
-      - run: supabase start -x realtime,storage-api,imgproxy,mailpit,studio,edge-runtime,logflare,vector,postgres-meta,supavisor,kong
+      - run: supabase start -x gotrue,postgrest,realtime,storage-api,imgproxy,mailpit,studio,edge-runtime,logflare,vector,postgres-meta,supavisor,kong
       - name: Teste de isolamento (psql)
         run: psql "postgresql://postgres:postgres@127.0.0.1:54322/postgres" -v ON_ERROR_STOP=1 -X -A -t -f supabase/sql/teste_isolamento_rls.sql > isolamento.txt
       - run: node scripts/teste-isolamento-local.mjs isolamento.txt
