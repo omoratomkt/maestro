@@ -26,3 +26,11 @@ Deno.test('linksNaoAutorizados: só o link de agendamento passa', () => {
   assertEquals(linksNaoAutorizados('Acesse https://exemplo.com.', null), ['https://exemplo.com.'])
   assertEquals(linksNaoAutorizados('Sem link nenhum aqui.', cal), [])
 })
+
+Deno.test('linksNaoAutorizados: o endereço completo conta (mesmo site, outra página, não passa)', () => {
+  const cal = 'https://cal.com/morato/30min'
+  assertEquals(linksNaoAutorizados('https://cal.com/outra-pessoa/30min', cal), ['https://cal.com/outra-pessoa/30min'])
+  assertEquals(linksNaoAutorizados('Escolha: https://www.cal.com/morato/30min/.', cal), [])
+  assertEquals(linksNaoAutorizados('https://cal.com/morato/30min#horarios', cal), [])
+  assertEquals(linksNaoAutorizados('https://cal.com/morato', cal), ['https://cal.com/morato'])
+})

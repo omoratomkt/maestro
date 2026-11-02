@@ -4,6 +4,7 @@ import { askClaude } from './anthropic.ts'
 import { availableChannels, type Canal } from './channels.ts'
 import { getCredentials } from './credentials.ts'
 import { notificar } from './notify.ts'
+import { palavrasProibidas } from './conduta.ts'
 import { carregarSupressoes, estaSuprimido } from './suppression.ts'
 import { firstName, nextBusinessSlot, type SB } from './util.ts'
 
@@ -95,12 +96,16 @@ function render(template: string, prospect: any): string {
     .replaceAll('{empresa}', prospect.nome_empresa)
 }
 
-/** Links da mensagem que não são o de agendamento autorizado (o agente não deve inventar nem repassar links). */
+/**
+ * Links da mensagem que não são o de agendamento autorizado (o agente não deve inventar nem repassar links).
+ * Vale o endereço COMPLETO (host e caminho): um link do mesmo site apontando para outra página ou outra pessoa não passa.
+ * Parâmetros depois de "?" ou "#" são aceitos.
+ */
 export function linksNaoAutorizados(mensagem: string, permitido: string | null): string[] {
   const links = mensagem.match(/(?:https?:\/\/|www\.)[^\s)\]>,"']+/gi) ?? []
-  const host = (u: string) => u.replace(/^https?:\/\//i, '').replace(/^www\./i, '').split(/[/?#]/)[0].toLowerCase()
-  const ok = permitido ? host(permitido) : null
-  return links.filter((l) => host(l) !== ok)
+  const base = (u: string) => u.replace(/^https?:\/\//i, '').replace(/^www\./i, '').split(/[?#]/)[0].replace(/[.,;:!?]+$/, '').replace(/\/+$/, '').toLowerCase()
+  const ok = permitido ? base(permitido) : null
+  return links.filter((l) => base(l) !== ok)
 }
 
 /** Fluxo automático ativo que cobre esta ação (só tipos sem resposta direta ao prospect). */
@@ -255,7 +260,12 @@ export async function proposeNextAction(sb: SB, prospect_id: string, opts: { fol
   const tipo = d.decisao === 'encerrar' ? 'encerrar' : d.tipo
   const flow = await matchFlow(sb, p, tipo, canal)
   const links = linksNaoAutorizados(d.mensagem, linkAgendamento)
-  const razao = links.length ? `${d.razao} ⚠ ATENÇÃO: a mensagem contém link(s) que não são o de agendamento (${links.join(', ')}). Confira antes de aprovar.` : d.razao
+  const proibidas = palavrasProibidas(d.mensagem)
+  const avisos = [
+    links.length ? `a mensagem contém link(s) que não são o de agendamento (${links.join(', ')})` : null,
+    proibidas.length ? `a mensagem usa termos que o agente não pode usar (${proibidas.join('; ')})` : null,
+  ].filter(Boolean)
+  const razao = avisos.length ? `${d.razao} ⚠ ATENÇÃO: ${avisos.join('. ')}. Confira antes de aprovar.` : d.razao
   const base = { workspace_id: p.workspace_id, prospect_id: p.id, campanha_id: p.campanha_id, tipo, canal, razao }
 
   if (flow) {
