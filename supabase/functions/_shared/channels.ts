@@ -119,6 +119,13 @@ async function sendWhatsapp(sb: SB, s: SendInput): Promise<SendResult> {
   throw new Error('Nenhuma integração de WhatsApp ativa para esta campanha.')
 }
 
+/** Primeiro email: o agente escreve "Assunto: ..." na primeira linha. O assunto vai para a variável {{assunto}} da campanha e o corpo fica sem essa linha. */
+export function separarAssunto(texto: string): { assunto: string | null; corpo: string } {
+  const m = texto.match(/^\s*assunto\s*:\s*(.+?)\s*(?:\r?\n|$)/i)
+  if (!m) return { assunto: null, corpo: texto.trim() }
+  return { assunto: m[1].trim().slice(0, 200), corpo: texto.slice(m[0].length).trim() }
+}
+
 async function sendEmail(sb: SB, s: SendInput): Promise<SendResult> {
   const to = s.prospect.email
   if (!to) throw new Error('Prospect sem email.')
@@ -149,6 +156,7 @@ async function sendEmail(sb: SB, s: SendInput): Promise<SendResult> {
   // Primeiro contato: o Instantly só envia a partir de uma campanha. Criamos o lead com a mensagem em
   // `personalization`; o template da campanha no Instantly deve usar {{personalization}} como corpo.
   const [first, ...rest] = (s.prospect.nome_contato ?? '').trim().split(/\s+/)
+  const { assunto, corpo } = separarAssunto(s.texto)
   const body = await http(
     'https://api.instantly.ai/api/v2/leads',
     {
@@ -162,7 +170,8 @@ async function sendEmail(sb: SB, s: SendInput): Promise<SendResult> {
         company_name: s.prospect.nome_empresa,
         website: s.prospect.website ?? undefined,
         job_title: s.prospect.cargo ?? undefined,
-        personalization: s.texto,
+        personalization: corpo,
+        custom_variables: assunto ? { assunto } : undefined,
         skip_if_in_workspace: true,
       }),
     },
