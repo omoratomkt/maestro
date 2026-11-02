@@ -2,8 +2,10 @@
 // integration-save — grava as credenciais das integrações já criptografadas (só super_admin).
 // POST { action: 'salvar', workspace_id, tipo, config, ativo }
 // POST { action: 'revelar_webhook', workspace_id, tipo }  → { webhook_secret } (para montar a URL do provedor)
+// POST { action: 'testar_aviso', workspace_id, tipo: 'notificacoes_email' }  → { resultado } ('enviado', 'sem_config' ou 'erro: ...')
 import { createClient } from 'npm:@supabase/supabase-js@2'
 import { cifrarConfig, decifrar } from '../_shared/crypto.ts'
+import { notificar } from '../_shared/notify.ts'
 import { corsHeaders, errMessage, json, readJson, serviceClient } from '../_shared/util.ts'
 
 Deno.serve(async (req) => {
@@ -26,6 +28,18 @@ Deno.serve(async (req) => {
       const { data } = await sb.from('integracoes').select('config').eq('workspace_id', b.workspace_id).eq('tipo', b.tipo).maybeSingle()
       const s = (data?.config as any)?.webhook_secret
       return json({ webhook_secret: s ? await decifrar(s) : null })
+    }
+    if (b.action === 'testar_aviso') {
+      if (b.tipo !== 'notificacoes_email') return json({ error: 'Só vale para o aviso por email' }, 400)
+      const resultado = await notificar(sb, b.workspace_id, {
+        tipo: 'teste',
+        chave: new Date().toISOString(),
+        assunto: 'Maestro: aviso de teste',
+        titulo: 'Aviso de teste do Maestro',
+        linhas: ['Se você recebeu este email, os avisos estão configurados corretamente.'],
+        link: '/setup',
+      })
+      return json({ resultado })
     }
     if (b.action === 'salvar') {
       if (typeof b.config !== 'object' || b.config === null || Array.isArray(b.config)) return json({ error: 'config inválida' }, 400)

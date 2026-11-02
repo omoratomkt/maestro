@@ -48,6 +48,18 @@ export function IntegrationForm({ def, workspaceId, current, onClose, onSave, on
     ? `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/${def.webhook}?ws=${workspaceId}${def.webhookSigned ? '' : `&token=${secretForUrl || '<segredo>'}`}`
     : null
 
+  const [testando, setTestando] = useState(false)
+  async function enviarTeste() {
+    setTestando(true)
+    const r = await callFunction<{ resultado: string }>('integration-save', { action: 'testar_aviso', workspace_id: workspaceId, tipo: def.tipo })
+    setTestando(false)
+    if (!r.ok) return toast.error(r.error ?? 'Não foi possível enviar o teste.')
+    const resultado = r.data?.resultado ?? ''
+    if (resultado === 'enviado') toast.success('Aviso de teste enviado. Confira a caixa de entrada e o spam.')
+    else if (resultado === 'sem_config') toast.error('Faltam chave, remetente ou destinatários.')
+    else toast.error(resultado.replace(/^erro:\s*/, '') || 'Falha ao enviar o teste.')
+  }
+
   async function submit() {
     const config: Record<string, Json> = { ...saved }
     for (const f of def.fields) {
@@ -126,6 +138,15 @@ export function IntegrationForm({ def, workspaceId, current, onClose, onSave, on
             <input type="checkbox" checked={ativo} onChange={(e) => setAtivo(e.target.checked)} />
             Ativa
           </label>
+
+          {def.tipo === 'notificacoes_email' && current ? (
+            <div className="flex items-center gap-3">
+              <Button type="button" variant="outline" disabled={saving || testando} onClick={enviarTeste}>
+                {testando ? 'Enviando...' : 'Enviar aviso de teste'}
+              </Button>
+              <span className="text-xs text-muted-foreground">Usa o que já está salvo. Salve antes se mudou algo.</span>
+            </div>
+          ) : null}
         </div>
         <div className="flex justify-between gap-2">
           {current && onRemove ? (
