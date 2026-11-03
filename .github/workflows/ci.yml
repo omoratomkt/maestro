@@ -53,3 +53,31 @@ jobs:
         env:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
+
+  # Isolamento entre clientes: lê o código atrás de consulta sem filtro de workspace (a service_role ignora o RLS).
+  auditoria-de-consultas:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: node --test scripts/auditar-consultas.test.mjs
+      - run: node scripts/auditar-consultas.mjs
+
+  # Isolamento entre clientes no banco: sobe um Supabase local, aplica todas as migrations do zero e roda o teste com dois clientes.
+  isolamento-rls:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - uses: supabase/setup-cli@v1
+        with:
+          version: latest
+      - run: supabase init
+      - run: supabase start -x gotrue,postgrest,realtime,storage-api,imgproxy,mailpit,studio,edge-runtime,logflare,vector,postgres-meta,supavisor,kong
+      - name: Teste de isolamento (psql)
+        run: psql "postgresql://postgres:postgres@127.0.0.1:54322/postgres" -v ON_ERROR_STOP=1 -X -A -t -f supabase/sql/teste_isolamento_rls.sql > isolamento.txt
+      - run: node scripts/teste-isolamento-local.mjs isolamento.txt
