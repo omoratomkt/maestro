@@ -4,7 +4,9 @@
 // URL a cadastrar no Instantly (webhook de evento "reply_received"):
 //   https://<projeto>.supabase.co/functions/v1/webhook-email?ws=<workspace_id>&token=<webhook_secret>
 // Campos usados do payload: lead_email, reply_text, email_account, email_id, reply_subject|subject.
-import { authWebhook, handleInbound } from '../_shared/inbound.ts'
+// O evento é gravado antes de ser processado (ver _shared/eventos.ts).
+import { executarEvento, registrarEvento } from '../_shared/eventos.ts'
+import { authWebhook } from '../_shared/inbound.ts'
 import { corsHeaders, errMessage, json, serviceClient } from '../_shared/util.ts'
 
 declare const EdgeRuntime: { waitUntil(p: Promise<unknown>): void }
@@ -16,24 +18,22 @@ Deno.serve(async (req) => {
   const auth = await authWebhook(sb, new URL(req.url), 'email_instantly')
   if (!auth) return json({ error: 'forbidden' }, 403)
 
+  const raw = await req.text()
   let b: any
   try {
-    b = await req.json()
+    b = JSON.parse(raw)
   } catch {
     return json({ error: 'JSON inválido' }, 400)
   }
-  if (String(b.event_type ?? '').toLowerCase() !== 'reply_received' || !b.lead_email || !b.reply_text) return json({ ok: true, ignorado: true })
+  if (String(b?.event_type ?? '').toLowerCase() !== 'reply_received' || !b.lead_email || !b.reply_text) return json({ ok: true, ignorado: true })
 
-  EdgeRuntime.waitUntil(
-    handleInbound(sb, {
-      workspace_id: auth.workspace_id,
-      canal: 'email',
-      quem: { email: b.lead_email },
-      texto: String(b.reply_text).trim(),
-      message_id: b.email_id,
-      // email_id e email_account são necessários para responder na mesma conversa (POST /emails/reply).
-      metadata: { provider: 'email_instantly', email_id: b.email_id, email_account: b.email_account, subject: b.reply_subject ?? b.subject, campaign_id: b.campaign_id },
-    }).catch((e) => console.error('webhook-email', errMessage(e))),
-  )
+  let evento
+  try {
+    evento = await registrarEvento(sb, auth.workspace_id, 'email', raw)
+  } catch (e) {
+    console.error('webhook-email', errMessage(e))
+    return json({ error: 'Erro interno' }, 500)
+  }
+  EdgeRuntime.waitUntil(executarEvento(sb, evento))
   return json({ ok: true })
 })

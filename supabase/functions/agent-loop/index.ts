@@ -11,6 +11,7 @@
 // POST { followup?: boolean, limit?: number }  ·  Auth: header x-cron-secret (ou service_role).
 import { proposeNextAction } from '../_shared/agent.ts'
 import { enrichProspect } from '../_shared/enrich.ts'
+import { reprocessarEventos } from '../_shared/eventos.ts'
 import { ERRO_LIMITE, executeAction } from '../_shared/execute.ts'
 import { enviarResumosDiarios, snapshotMetricas } from '../_shared/rotinas.ts'
 import { iaPausada } from '../_shared/ia_controle.ts'
@@ -37,8 +38,12 @@ Deno.serve(async (req) => {
   const sb = serviceClient()
   // Interruptor geral: com a IA pausada o ciclo não enriquece (usa IA) nem decide, e não envia o que é automático.
   const pausada = await iaPausada(sb)
-  const report: Record<string, any> = { ia_pausada: pausada, followup, expiradas: 0, buscas: [], enriquecidos: [], enviadas: [], decisoes: [], erros: [] }
+  const report: Record<string, any> = { ia_pausada: pausada, followup, eventos: null, expiradas: 0, buscas: [], enriquecidos: [], enviadas: [], decisoes: [], erros: [] }
   const nowIso = () => new Date().toISOString()
+
+  // 0) Eventos recebidos nos webhooks que falharam ou ficaram parados (função derrubada no meio): reprocessa antes de tudo.
+  // Não usa a IA como condição: descadastro e escalada rodam por código, e com a IA pausada a triagem apenas devolve a mensagem ao ciclo.
+  report.eventos = await reprocessarEventos(sb, { limite: 20, temTempo: timeLeft }).catch((e) => ({ erro: errMessage(e) }))
 
   // 1) Expirar pendentes vencidas
   const { data: expiradas } = await sb

@@ -26,6 +26,12 @@ export type Database = {
         Update: { atualizado_em?: string; atualizado_por?: string | null; id?: string; instrucoes?: string; papel?: string; workspace_id?: string }
         Relationships: []
       }
+      eventos_recebidos: {
+        Row: { canal: string; corpo_bruto: string | null; erro: string | null; id: string; processado_em: string | null; proxima_tentativa_em: string; recebido_em: string; resultado: string | null; status: string; tentativas: number; workspace_id: string }
+        Insert: { canal: string; corpo_bruto?: string | null; erro?: string | null; id?: string; processado_em?: string | null; proxima_tentativa_em?: string; recebido_em?: string; resultado?: string | null; status?: string; tentativas?: number; workspace_id: string }
+        Update: { canal?: string; corpo_bruto?: string | null; erro?: string | null; id?: string; processado_em?: string | null; proxima_tentativa_em?: string; recebido_em?: string; resultado?: string | null; status?: string; tentativas?: number; workspace_id?: string }
+        Relationships: []
+      }
       ia_chamadas_log: {
         Row: {
           criado_em: string
@@ -834,6 +840,7 @@ export type Database = {
           ultima_interacao_em: string | null
           website: string | null
           whatsapp: string | null
+          whatsapp_normalizado: string | null
           workspace_id: string
         }
         Insert: {
@@ -864,6 +871,7 @@ export type Database = {
           ultima_interacao_em?: string | null
           website?: string | null
           whatsapp?: string | null
+          whatsapp_normalizado?: string | null
           workspace_id: string
         }
         Update: {
@@ -894,6 +902,7 @@ export type Database = {
           ultima_interacao_em?: string | null
           website?: string | null
           whatsapp?: string | null
+          whatsapp_normalizado?: string | null
           workspace_id?: string
         }
         Relationships: [

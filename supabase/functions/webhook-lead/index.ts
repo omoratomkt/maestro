@@ -10,6 +10,7 @@ import { cnpjValido } from '../_shared/cnpj.ts'
 import { excedeuLimiteDeNovos, MAX_CORPO_BYTES, texto } from '../_shared/entrada_publica.ts'
 import { handleInbound, authWebhook } from '../_shared/inbound.ts'
 import { carregarSupressoes, estaSuprimido } from '../_shared/suppression.ts'
+import { telefoneCanonico } from '../_shared/telefone.ts'
 import { corsHeaders, digits, errMessage, json, normalizePhone, serviceClient, type SB } from '../_shared/util.ts'
 
 
@@ -55,7 +56,9 @@ Deno.serve(async (req) => {
     // Já existe? Só registra a nova mensagem.
     let existente: any = null
     if (email) existente = (await sb.from('prospects').select('id').eq('workspace_id', auth.workspace_id).ilike('email', email).limit(1)).data?.[0]
-    if (!existente && whatsapp) existente = (await sb.from('prospects').select('id').eq('workspace_id', auth.workspace_id).like('whatsapp', `%${whatsapp.slice(-8)}`).limit(1)).data?.[0]
+    // Mesmo número completo (DDI + DDD + 9º dígito): o mesmo final de número em outra cidade é outra pessoa.
+    const canonico = telefoneCanonico(whatsapp)
+    if (!existente && canonico) existente = (await sb.from('prospects').select('id').eq('workspace_id', auth.workspace_id).eq('whatsapp_normalizado', canonico).limit(1)).data?.[0]
 
     let prospect_id: string
     if (existente) prospect_id = existente.id

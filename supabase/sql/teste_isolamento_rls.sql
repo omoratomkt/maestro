@@ -44,6 +44,9 @@ INSERT INTO ia_chamadas_log (workspace_id, papel, resultado) VALUES
   ('a0000000-0000-0000-0000-00000000000a', 'agent', 'ok'), ('b0000000-0000-0000-0000-00000000000b', 'agent', 'ok');
 INSERT INTO agente_prompts (workspace_id, papel, instrucoes) VALUES
   ('a0000000-0000-0000-0000-00000000000a', 'agente', 'instrucao A'), ('b0000000-0000-0000-0000-00000000000b', 'agente', 'instrucao B');
+INSERT INTO eventos_recebidos (workspace_id, canal, corpo_bruto) VALUES
+  ('a0000000-0000-0000-0000-00000000000a', 'whatsapp', '{"a":1}'), ('b0000000-0000-0000-0000-00000000000b', 'whatsapp', '{"b":1}');
+UPDATE prospects SET whatsapp = '(11) 8765-4321' WHERE id = 'a0000000-0000-0000-0000-0000000000fa';
 
 CREATE TEMP TABLE _rls (ordem SERIAL, quem TEXT, teste TEXT, esperado TEXT, obtido TEXT, ok BOOLEAN);
 GRANT ALL ON _rls TO authenticated, anon;
@@ -65,6 +68,11 @@ DECLARE
   r JSONB := '[]'::JSONB;
   t TEXT;
 BEGIN
+  ------------------------------------------------------------------ telefone normalizado (gatilho e função)
+  SELECT whatsapp_normalizado INTO t FROM prospects WHERE id = PA;
+  r := r || jsonb_build_object('quem','banco','teste','gatilho preenche o telefone normalizado (com 9º dígito) e não altera o original','esperado','5511987654321','obtido',coalesce(t,'NULL'),'ok',t = '5511987654321' AND (SELECT whatsapp FROM prospects WHERE id = PA) = '(11) 8765-4321');
+  r := r || jsonb_build_object('quem','banco','teste','telefone_canonico ignora o sufixo de JID','esperado','5511987654321','obtido',coalesce(telefone_canonico('551187654321@s.whatsapp.net'),'NULL'),'ok',telefone_canonico('551187654321@s.whatsapp.net') = '5511987654321');
+
   ------------------------------------------------------------------ operador do workspace A
   EXECUTE 'SET LOCAL ROLE authenticated';
   PERFORM set_config('request.jwt.claims', A, true);
@@ -111,6 +119,10 @@ BEGIN
   r := r || jsonb_build_object('quem','operador A','teste','operador não edita as instruções do agente (só o super_admin)','esperado','0 linhas','obtido',CASE WHEN falhou THEN 'bloqueado' ELSE 'passou' END,'ok',falhou);
   falhou := false; BEGIN INSERT INTO agente_prompt_versoes (workspace_id, papel, instrucoes) VALUES (WA, 'agente', 'x'); EXCEPTION WHEN OTHERS THEN falhou := true; END;
   r := r || jsonb_build_object('quem','operador A','teste','operador não grava versões de prompt (só o gatilho)','esperado','erro','obtido',CASE WHEN falhou THEN 'erro' ELSE 'passou' END,'ok',falhou);
+  falhou := false; n := 0; BEGIN SELECT count(*) INTO n FROM eventos_recebidos; EXCEPTION WHEN insufficient_privilege THEN falhou := true; END;
+  r := r || jsonb_build_object('quem','operador A','teste','não lê eventos_recebidos (só as funções), nem os do próprio workspace','esperado','0 linhas','obtido',CASE WHEN falhou THEN 'sem permissão' ELSE n::text END,'ok',(falhou OR n = 0));
+  falhou := false; BEGIN INSERT INTO eventos_recebidos (workspace_id, canal, corpo_bruto) VALUES (WA, 'whatsapp', '{}'); EXCEPTION WHEN OTHERS THEN falhou := true; END;
+  r := r || jsonb_build_object('quem','operador A','teste','operador não grava eventos_recebidos','esperado','erro','obtido',CASE WHEN falhou THEN 'erro' ELSE 'passou' END,'ok',falhou);
 
   ------------------------------------------------------------------ operador do workspace B
   EXECUTE 'RESET ROLE'; EXECUTE 'SET LOCAL ROLE authenticated';
@@ -125,6 +137,8 @@ BEGIN
   SELECT count(*) INTO n FROM ia_chamadas_log WHERE workspace_id = WA; r := r || jsonb_build_object('quem','operador B','teste','não vê o registro de IA de A','esperado','0','obtido',n::text,'ok',n = 0);
   SELECT count(*) INTO n FROM agente_prompts WHERE workspace_id = WA; r := r || jsonb_build_object('quem','operador B','teste','não vê as instruções do agente de A','esperado','0','obtido',n::text,'ok',n = 0);
   SELECT count(*) INTO n FROM agente_prompt_versoes WHERE workspace_id = WA; r := r || jsonb_build_object('quem','operador B','teste','não vê as versões de prompt de A','esperado','0','obtido',n::text,'ok',n = 0);
+  falhou := false; n := 0; BEGIN SELECT count(*) INTO n FROM eventos_recebidos WHERE workspace_id = WA; EXCEPTION WHEN insufficient_privilege THEN falhou := true; END;
+  r := r || jsonb_build_object('quem','operador B','teste','não vê os eventos recebidos de A','esperado','0 linhas','obtido',CASE WHEN falhou THEN 'sem permissão' ELSE n::text END,'ok',(falhou OR n = 0));
 
   ------------------------------------------------------------------ super_admin
   EXECUTE 'RESET ROLE'; EXECUTE 'SET LOCAL ROLE authenticated';
@@ -145,7 +159,7 @@ BEGIN
   ------------------------------------------------------------------ anônimo (chave anon, sem login)
   EXECUTE 'RESET ROLE'; EXECUTE 'SET LOCAL ROLE anon';
   PERFORM set_config('request.jwt.claims', '{"role":"anon"}', true);
-  FOREACH t IN ARRAY ARRAY['workspaces','workspace_usuarios','playbooks','campanhas','prospects','prospect_interacoes','prospect_estado','fila_acoes','fluxos_automaticos','leads_qualificados','integracoes','custos_uso','supressoes','source_log','ciclo_log','prospect_alerts','campanha_metricas','notificacoes_log','plataforma_config','ia_chamadas_log','agente_prompts','agente_prompt_versoes'] LOOP
+  FOREACH t IN ARRAY ARRAY['workspaces','workspace_usuarios','playbooks','campanhas','prospects','prospect_interacoes','prospect_estado','fila_acoes','fluxos_automaticos','leads_qualificados','integracoes','custos_uso','supressoes','source_log','ciclo_log','prospect_alerts','campanha_metricas','notificacoes_log','plataforma_config','ia_chamadas_log','agente_prompts','agente_prompt_versoes','eventos_recebidos'] LOOP
     falhou := false; n := 0;
     BEGIN EXECUTE format('SELECT count(*) FROM %I', t) INTO n; EXCEPTION WHEN insufficient_privilege THEN falhou := true; END;
     r := r || jsonb_build_object('quem','anônimo','teste','não lê '||t,'esperado','0 linhas','obtido',CASE WHEN falhou THEN 'sem permissão' ELSE n::text END,'ok',(falhou OR n = 0));

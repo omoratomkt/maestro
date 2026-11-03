@@ -8,7 +8,8 @@ import { ehOptOut } from './optout.ts'
 import { qualifyProspect } from './qualify.ts'
 import { notificar } from './notify.ts'
 import { suprimir } from './suppression.ts'
-import { digits, errMessage, timingSafeEqual, type SB } from './util.ts'
+import { telefoneCanonico } from './telefone.ts'
+import { errMessage, timingSafeEqual, type SB } from './util.ts'
 import { decifrarConfig } from './crypto.ts'
 
 export interface InboundMessage {
@@ -21,6 +22,8 @@ export interface InboundMessage {
   /** id da mensagem no provedor (idempotência) e demais metadados. */
   message_id?: string
   metadata?: Record<string, unknown>
+  /** Só o reprocessamento (eventos.ts): retoma a mensagem que foi gravada mas não chegou a ser tratada, em vez de descartá-la como repetida. */
+  retomar?: boolean
 }
 
 export interface InboundResult {
@@ -30,6 +33,8 @@ export interface InboundResult {
   qualificado?: boolean
   proximo?: string
   erro?: string
+  /** A mensagem NÃO foi gravada: quem chamou deve tentar de novo mais tarde. */
+  retentar?: boolean
 }
 
 type Intencao = 'interesse' | 'duvida' | 'objecao' | 'recusa' | 'opt_out' | 'pedido_humano' | 'agendamento' | 'resposta_automatica' | 'fora_de_contexto'
@@ -47,10 +52,11 @@ const triageSchema = {
 async function findProspect(sb: SB, m: InboundMessage): Promise<any | null> {
   let q = sb.from('prospects').select('*').eq('workspace_id', m.workspace_id)
   if (m.quem.whatsapp) {
-    // Compara pelos 8 últimos dígitos: evita falhar por DDI ou pelo 9º dígito.
-    const tail = digits(m.quem.whatsapp).slice(-8)
-    if (tail.length < 8) return null
-    q = q.like('whatsapp', `%${tail}`)
+    // Número completo normalizado (55 + DDD + 9º dígito), com e sem o 9 e com e sem DDI chegam ao mesmo valor. Nunca só o final do número:
+    // o mesmo final em outra cidade é outra pessoa. A coluna é mantida por gatilho a partir de prospects.whatsapp (migration 025).
+    const canonico = telefoneCanonico(m.quem.whatsapp)
+    if (!canonico) return null
+    q = q.eq('whatsapp_normalizado', canonico)
   } else if (m.quem.email) q = q.ilike('email', m.quem.email.trim())
   else if (m.quem.linkedin_url) {
     const slug = m.quem.linkedin_url.replace(/\/+$/, '').split('/').pop() ?? ''
@@ -75,26 +81,35 @@ export async function handleInbound(sb: SB, m: InboundMessage): Promise<InboundR
   const p = await findProspect(sb, m)
   if (!p) return { encontrado: false }
 
+  let row: { id: string } | null = null
   if (m.message_id) {
-    const { data: dup } = await sb.from('prospect_interacoes').select('id').eq('prospect_id', p.id).eq('metadata->>message_id', m.message_id).limit(1)
-    if (dup?.length) return { encontrado: true, duplicada: true }
+    const { data: dup } = await sb.from('prospect_interacoes').select('id, metadata').eq('prospect_id', p.id).eq('metadata->>message_id', m.message_id).limit(1)
+    if (dup?.length) {
+      // Reenvio do provedor: já tratada. Só o reprocessamento retoma, e só se o tratamento anterior parou antes de registrar a triagem
+      // (descadastro, escalada e triagem sempre gravam `triagem` na mensagem; sem isso o tratamento não terminou).
+      if (!m.retomar || dup[0].metadata?.triagem) return { encontrado: true, duplicada: true }
+      row = { id: dup[0].id }
+    }
   }
 
   const agora = new Date().toISOString()
-  const { data: row, error } = await sb
-    .from('prospect_interacoes')
-    .insert({
-      prospect_id: p.id,
-      canal: m.canal,
-      direcao: 'in',
-      conteudo: m.texto,
-      tipo: m.tipo ?? 'text',
-      metadata: { ...(m.metadata ?? {}), message_id: m.message_id },
-      enviado_em: agora,
-    })
-    .select('id')
-    .single()
-  if (error) return { encontrado: true, erro: error.message }
+  if (!row) {
+    const { data, error } = await sb
+      .from('prospect_interacoes')
+      .insert({
+        prospect_id: p.id,
+        canal: m.canal,
+        direcao: 'in',
+        conteudo: m.texto,
+        tipo: m.tipo ?? 'text',
+        metadata: { ...(m.metadata ?? {}), message_id: m.message_id },
+        enviado_em: agora,
+      })
+      .select('id')
+      .single()
+    if (error || !data) return { encontrado: true, erro: error?.message ?? 'sem retorno ao gravar a mensagem', retentar: true }
+    row = data
+  }
 
   // Quem respondeu volta a ser prioridade; descartado/convertido ficam como estão.
   const reabre = !['descartado', 'convertido', 'qualificado', 'agendado'].includes(p.status)

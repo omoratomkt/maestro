@@ -7,7 +7,9 @@
 //    para o IGSID (metadata). Sem esse vínculo a mensagem é ignorada. A verificação GET usa o verify_token da integração.
 //  · Genérico: { "instagram_handle": "fulano", "mensagem": "texto", "message_id": "opcional" }
 // URL: https://<projeto>.supabase.co/functions/v1/webhook-instagram?ws=<workspace_id>&token=<webhook_secret>
-import { authWebhook, handleInbound } from '../_shared/inbound.ts'
+// O evento é gravado antes de ser processado, inclusive a resolução do IGSID (ver _shared/eventos.ts e processadores.ts).
+import { executarEvento, registrarEvento } from '../_shared/eventos.ts'
+import { authWebhook } from '../_shared/inbound.ts'
 import { corsHeaders, errMessage, json, serviceClient, timingSafeEqual } from '../_shared/util.ts'
 import { decifrarConfig } from '../_shared/crypto.ts'
 
@@ -33,56 +35,22 @@ Deno.serve(async (req) => {
 
   const auth = await authWebhook(sb, url, 'instagram_meta')
   if (!auth) return json({ error: 'forbidden' }, 403)
+  const raw = await req.text()
   let b: any
   try {
-    b = await req.json()
+    b = JSON.parse(raw)
   } catch {
     return json({ error: 'JSON inválido' }, 400)
   }
+  if (b?.object !== 'instagram' && !(b?.instagram_handle && b.mensagem)) return json({ error: 'payload não reconhecido' }, 400)
 
-  const jobs: Promise<unknown>[] = []
-  if (b.object === 'instagram') {
-    for (const entry of b.entry ?? [])
-      for (const ev of entry.messaging ?? []) {
-        if (!ev.message?.text || ev.message.is_echo) continue
-        // Resolve o IGSID para o prospect: primeiro pelo vínculo já guardado; senão consulta o @username na Graph API.
-        const igsid = String(ev.sender?.id)
-        const { data } = await sb.from('prospects').select('instagram_handle').eq('workspace_id', auth.workspace_id).eq('dados_enriquecimento->>instagram_id', igsid).limit(1)
-        let handle: string | undefined = data?.[0]?.instagram_handle
-        if (!handle) {
-          const r = await fetch(`https://graph.facebook.com/v21.0/${igsid}?fields=username`, { headers: { Authorization: `Bearer ${auth.config.access_token}` } })
-          const username: string | undefined = r.ok ? (await r.json()).username : undefined
-          if (!username) continue
-          const { data: p } = await sb.from('prospects').select('id, instagram_handle, dados_enriquecimento').eq('workspace_id', auth.workspace_id).ilike('instagram_handle', username).limit(1)
-          if (!p?.[0]) continue
-          handle = p[0].instagram_handle
-          await sb.from('prospects').update({ dados_enriquecimento: { ...(p[0].dados_enriquecimento ?? {}), instagram_id: igsid } }).eq('id', p[0].id)
-        }
-        if (!handle) continue
-        jobs.push(
-          handleInbound(sb, {
-            workspace_id: auth.workspace_id,
-            canal: 'instagram',
-            quem: { instagram_handle: handle },
-            texto: ev.message.text,
-            message_id: ev.message.mid,
-            metadata: { provider: 'instagram_meta', igsid: ev.sender?.id },
-          }),
-        )
-      }
-  } else if (b.instagram_handle && b.mensagem) {
-    jobs.push(
-      handleInbound(sb, {
-        workspace_id: auth.workspace_id,
-        canal: 'instagram',
-        quem: { instagram_handle: b.instagram_handle },
-        texto: String(b.mensagem).trim(),
-        message_id: b.message_id,
-        metadata: { provider: 'instagram' },
-      }),
-    )
-  } else return json({ error: 'payload não reconhecido' }, 400)
-
-  EdgeRuntime.waitUntil(Promise.all(jobs).catch((e) => console.error('webhook-instagram', errMessage(e))))
+  let evento
+  try {
+    evento = await registrarEvento(sb, auth.workspace_id, 'instagram', raw)
+  } catch (e) {
+    console.error('webhook-instagram', errMessage(e))
+    return json({ error: 'Erro interno' }, 500)
+  }
+  EdgeRuntime.waitUntil(executarEvento(sb, evento))
   return json({ ok: true })
 })
