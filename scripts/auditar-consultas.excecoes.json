@@ -1,0 +1,6 @@
+[
+  { "arquivo": "agent-loop/index.ts", "tabela": "fila_acoes", "motivo": "Ciclo do agente: varre as ações de TODOS os clientes (expirar pendentes, enviar aprovadas). É cron com segredo, não chamada de cliente; cada ação é tratada pelo seu próprio workspace_id." },
+  { "arquivo": "agent-loop/index.ts", "tabela": "campanhas", "motivo": "Ciclo do agente: lista as campanhas ativas de todos os clientes para buscar prospects; cada busca usa o workspace da campanha." },
+  { "arquivo": "agent-loop/index.ts", "tabela": "prospect_estado", "motivo": "Ciclo do agente: pega os prospects com próxima ação vencida em todos os clientes; cada decisão usa o workspace do prospect." },
+  { "arquivo": "health-check/index.ts", "tabela": "fila_acoes", "motivo": "Vigia do sistema: conta falhas de envio em toda a plataforma (watchdog), sem devolver dado de cliente." }
+]
