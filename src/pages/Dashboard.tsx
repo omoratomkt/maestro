@@ -1,4 +1,5 @@
 import { Flame, MessageSquareReply, Radar, Send, ShieldCheck, Target, UserPlus } from 'lucide-react'
+import { useState } from 'react'
 import { Link } from 'react-router-dom'
 import { PageShell } from '@/components/layout/PageShell'
 import { MetricCard } from '@/components/metrics/MetricCard'
@@ -8,14 +9,47 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Skeleton } from '@/components/ui/skeleton'
 import { descreverAlerta, TIPOS_ALERTA, useAlertas } from '@/hooks/useAlertas'
 import { useDashboard } from '@/hooks/useDashboard'
+import { DASHBOARD_DEMO, demoLigada, gravarDemo } from '@/lib/dashboardDemo'
+
+interface LeadQuenteView {
+  id: string
+  empresa: string
+  contato: string
+  proximoPasso: string
+  statusReuniao: string | null
+  score: number | null
+}
 
 export default function Dashboard() {
-  const { data, error } = useDashboard()
+  const { data: real, error } = useDashboard()
   const { alertas, marcarVisto, marcarTodos } = useAlertas()
+  // Demonstração: números inventados para mostrar o Maestro em uso pleno. O interruptor abaixo volta aos dados reais.
+  const [demo, setDemo] = useState(demoLigada)
+  const alternarDemo = () => {
+    gravarDemo(!demo)
+    setDemo(!demo)
+  }
+  const data = demo ? DASHBOARD_DEMO : real
+  const leadsQuentes: LeadQuenteView[] = demo
+    ? DASHBOARD_DEMO.leadsQuentes.map((l) => ({ id: l.id, empresa: l.empresa, contato: l.contato, proximoPasso: l.proximoPasso, statusReuniao: l.statusReuniao, score: l.score }))
+    : (real?.leadsQuentes ?? []).map((l) => ({
+        id: l.id,
+        empresa: l.prospects?.nome_empresa ?? 'Prospect removido',
+        contato: [l.prospects?.nome_contato, l.prospects?.cargo].filter(Boolean).join(' · '),
+        proximoPasso: l.proximo_passo ?? '',
+        statusReuniao: l.status_reuniao,
+        score: l.score_temperatura,
+      }))
 
   return (
     <PageShell title="Dashboard" description="Métricas do dia, fila pendente e leads quentes">
-      {error ? <p className="mb-4 text-sm text-destructive">Erro ao carregar métricas: {error}</p> : null}
+      <div className="mb-4 flex flex-wrap items-center justify-between gap-2 text-xs text-muted-foreground">
+        <span>{demo ? 'Números de demonstração: o Maestro em uso pleno.' : 'Mostrando os dados reais do workspace.'}</span>
+        <Button type="button" variant="ghost" size="sm" onClick={alternarDemo}>
+          {demo ? 'Ver dados reais' : 'Ver demonstração'}
+        </Button>
+      </div>
+      {error && !demo ? <p className="mb-4 text-sm text-destructive">Erro ao carregar métricas: {error}</p> : null}
 
       {!data && !error ? (
         <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-5">
@@ -51,22 +85,22 @@ export default function Dashboard() {
               </CardTitle>
             </CardHeader>
             <CardContent>
-              {data.leadsQuentes.length === 0 ? (
+              {leadsQuentes.length === 0 ? (
                 <p className="text-sm text-muted-foreground">Nenhum lead qualificado aguardando reunião.</p>
               ) : (
                 <ul className="divide-y">
-                  {data.leadsQuentes.map((l) => (
+                  {leadsQuentes.map((l) => (
                     <li key={l.id} className="flex items-center justify-between gap-3 py-2.5 text-sm">
                       <div className="min-w-0">
-                        <p className="truncate font-medium">{l.prospects?.nome_empresa ?? 'Prospect removido'}</p>
+                        <p className="truncate font-medium">{l.empresa}</p>
                         <p className="truncate text-xs text-muted-foreground">
-                          {[l.prospects?.nome_contato, l.prospects?.cargo].filter(Boolean).join(' · ')}
-                          {l.proximo_passo ? ` · ${l.proximo_passo}` : ''}
+                          {l.contato}
+                          {l.proximoPasso ? ` · ${l.proximoPasso}` : ''}
                         </p>
                       </div>
                       <div className="flex shrink-0 items-center gap-2">
-                        <Badge variant="outline">{l.status_reuniao}</Badge>
-                        {l.score_temperatura !== null ? <Badge variant="destaque">{l.score_temperatura}/10</Badge> : null}
+                        {l.statusReuniao ? <Badge variant="outline">{l.statusReuniao}</Badge> : null}
+                        {l.score !== null ? <Badge variant="destaque">{l.score}/10</Badge> : null}
                       </div>
                     </li>
                   ))}
